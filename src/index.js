@@ -8,6 +8,30 @@ app.use(express.json());
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'hookmyapp-verify';
 const PORT = process.env.PORT || 3000;
 
+// Send a WhatsApp text message via sandbox proxy or production Meta API.
+// Works identically with both -- just swap the three WHATSAPP_* env vars.
+export async function sendMessage(to, text) {
+  const url = `${process.env.WHATSAPP_API_URL}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'text',
+      text: { body: text },
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`WhatsApp API error ${res.status}: ${JSON.stringify(err)}`);
+  }
+  return res.json();
+}
+
 // Health check
 app.get('/', (req, res) => {
   res.json({ status: 'running', service: 'webhook-starter-kit' });
@@ -53,6 +77,12 @@ app.post('/webhook', (req, res) => {
           const type = message.type;
           const text = type === 'text' ? message.text?.body : `[${type}]`;
           console.log(`  Message from ${from}: ${text}`);
+
+          // Example: echo back received text messages
+          // Uncomment the lines below to auto-reply:
+          // if (type === 'text' && text) {
+          //   await sendMessage(from, `Echo: ${text}`);
+          // }
         }
       } else {
         console.log(`  Data: ${JSON.stringify(change.value, null, 2)}`);
