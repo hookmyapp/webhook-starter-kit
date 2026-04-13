@@ -4,15 +4,7 @@ Receive and send WhatsApp messages via [HookMyApp](https://hookmyapp.com) in min
 
 ## Quick Start
 
-### 1. Get a sandbox session
-
-Sign up at [hookmyapp.com](https://hookmyapp.com) and go to the **Sandbox** page in your dashboard.
-
-1. Click **Add testing session** and enter your phone number.
-2. Send the activation code to the sandbox WhatsApp number (the dashboard gives you a direct link).
-3. Once activated, click the **Copy .env** button (clipboard icon) in the Actions column -- this copies all the env vars you need.
-
-### 2. Set up the starter kit
+### 1. Clone the starter kit
 
 ```bash
 git clone https://github.com/hookmyapp/webhook-starter-kit.git
@@ -21,7 +13,40 @@ npm install
 cp .env.example .env
 ```
 
-Paste the env vars you copied from the dashboard into `.env`, replacing the placeholder values.
+### 2. Get your sandbox credentials
+
+Pick whichever method you prefer -- both give you the same `.env` values.
+
+<details>
+<summary><b>Option A: Dashboard</b> (visual)</summary>
+
+1. Sign up at [hookmyapp.com](https://hookmyapp.com) and go to the **Sandbox** page.
+2. Click **Add testing session** and enter your phone number.
+3. Send the activation code to the sandbox WhatsApp number (the dashboard gives you a direct link).
+4. Once activated, click the **Copy .env** button (clipboard icon) in the Actions column.
+5. Paste into your `.env` file, replacing the placeholder values.
+
+</details>
+
+<details open>
+<summary><b>Option B: CLI</b> (terminal)</summary>
+
+```bash
+npm install -g hookmyapp
+hookmyapp login
+```
+
+> **Note:** `login` opens a browser window -- sign in or create an account, then return to the terminal.
+
+```bash
+hookmyapp sandbox start --phone <your-phone-number>
+```
+
+This prints:
+1. A WhatsApp link to send the activation code -- **open it and send the message**.
+2. Your `.env` values -- copy them into your `.env` file.
+
+</details>
 
 ### 3. Start the server and tunnel
 
@@ -32,12 +57,14 @@ Open two terminals:
 npm run dev
 ```
 
-**Terminal 2** -- start the ngrok tunnel (uses `NGROK_DOMAIN` and `NGROK_AUTHTOKEN` from your `.env`):
+**Terminal 2** -- start the ngrok tunnel (reads `NGROK_DOMAIN` and `NGROK_AUTHTOKEN` from your `.env`):
 ```bash
 npm run tunnel
 ```
 
-That's it. Your sandbox session's webhook URL already points to your ngrok domain. Send a WhatsApp message to the sandbox number -- you should see it logged in Terminal 1.
+### 4. Send a message
+
+Send a WhatsApp message to the sandbox number. You should see it logged in Terminal 1, and get an auto-reply confirming your webhook is connected.
 
 ## How It Works
 
