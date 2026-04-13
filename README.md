@@ -48,29 +48,30 @@ This prints:
 
 </details>
 
-### 3. Start the server and tunnel
+### 3. Start
 
-Open two terminals:
-
-**Terminal 1** -- start the webhook server:
 ```bash
-npm run dev
+npm start
 ```
 
-**Terminal 2** -- start the ngrok tunnel (reads `NGROK_DOMAIN` and `NGROK_AUTHTOKEN` from your `.env`):
-```bash
-npm run tunnel
+This starts both the webhook server and the ngrok tunnel in one command:
+
 ```
+[server] Webhook server listening on port 3000
+[tunnel] sandbox-xxx.ngrok-free.app -> localhost:3000
+```
+
+> **Tip:** Use `npm run dev` for server-only with auto-reload during development. Use `npm run tunnel` to start just the tunnel separately.
 
 ### 4. Send a message
 
-Send a WhatsApp message to the sandbox number. You should see it logged in Terminal 1, and get an auto-reply confirming your webhook is connected.
+Send a WhatsApp message to the sandbox number. You should see it logged in your terminal, and get an auto-reply confirming your webhook is connected.
 
 ## How It Works
 
 ```
 WhatsApp user           Meta            HookMyApp           Your server
-sends message  ──────>  Cloud API  ──>  Forwarder  ──────>  POST /webhook
+sends message  ──────>  Cloud API  ──>  Forwarder  ──────>  POST /
                         webhook         signs with          verifies
                                         HMAC-SHA256         signature
 ```
@@ -88,12 +89,12 @@ When you configure your webhook URL in HookMyApp (via the web app or CLI), HookM
 
 ```
 HookMyApp                          Your server
-GET /webhook  ──────────────────>  respond with verify token as body
+GET /  ────────────────────────>  respond with verify token as body
               <──────────────────  "your-secret-token"
                                    ✓ URL verified, config saved
 ```
 
-This starter kit handles the verification challenge automatically -- see the `GET /webhook` handler in `src/index.js`.
+This starter kit handles the verification challenge automatically -- see the `GET /` handler in `src/index.js`.
 
 ## Webhook Payload Format
 
