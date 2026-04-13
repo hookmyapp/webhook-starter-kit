@@ -23,29 +23,21 @@ cp .env.example .env
 
 Paste the env vars you copied from the dashboard into `.env`, replacing the placeholder values.
 
-### 3. Start ngrok
+### 3. Start the server and tunnel
 
-Your `.env` includes an `NGROK_AUTHTOKEN` scoped to your sandbox session. Use it to expose your local server:
+Open two terminals:
 
-```bash
-npx ngrok http 3000
-```
-
-Copy the public `https://...ngrok-free.app` URL -- you'll need it in the next step.
-
-> **First time using ngrok?** The command above downloads and runs it automatically via npx. If you prefer, [install ngrok globally](https://ngrok.com/download) and set your token with `ngrok config add-authtoken <your-token>`.
-
-### 4. Start the server
-
+**Terminal 1** -- start the webhook server:
 ```bash
 npm run dev
 ```
 
-Your webhook server is now running on `http://localhost:3000`.
+**Terminal 2** -- start the ngrok tunnel (uses `NGROK_DOMAIN` and `NGROK_AUTHTOKEN` from your `.env`):
+```bash
+npm run tunnel
+```
 
-### 5. Connect your webhook
-
-Back in the HookMyApp dashboard, click the edit (pencil) icon on your session and paste your ngrok URL as the webhook URL. Send a WhatsApp message to the sandbox number -- you should see it logged in your terminal.
+That's it. Your sandbox session's webhook URL already points to your ngrok domain. Send a WhatsApp message to the sandbox number -- you should see it logged in Terminal 1.
 
 ## How It Works
 
@@ -219,7 +211,8 @@ Your code stays exactly the same -- only the env vars change.
 | `WHATSAPP_API_URL` | `https://sandbox.hookmyapp.com/v22.0` | API base URL. Use `https://graph.facebook.com/v22.0` for production. |
 | `WHATSAPP_ACCESS_TOKEN` | -- | Your sandbox activation code or Meta access token. |
 | `WHATSAPP_PHONE_NUMBER_ID` | -- | Phone number ID from your sandbox session or Meta dashboard. |
-| `NGROK_AUTHTOKEN` | -- | Ngrok auth token from your sandbox session. Used to expose your local server. |
+| `NGROK_AUTHTOKEN` | -- | Ngrok auth token from your sandbox session. Used by `npm run tunnel`. |
+| `NGROK_DOMAIN` | -- | Ngrok domain assigned to your sandbox session (e.g., `sandbox-xxx.ngrok-free.app`). Used by `npm run tunnel`. |
 
 ## Next Steps
 
