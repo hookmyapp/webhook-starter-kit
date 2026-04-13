@@ -45,7 +45,18 @@ sends message  ──────>  Cloud API  ──>  Forwarder  ────�
 
 The payload arrives in the **original Meta format** -- HookMyApp does not modify the webhook body. You can use Meta's official documentation for the full payload schema.
 
-There is **no verification challenge** (GET request) needed on your end -- HookMyApp handles Meta's subscription verification for you. You only need to handle incoming POST requests.
+### Verification Challenge
+
+When you configure your webhook URL in HookMyApp (via the dashboard or CLI), HookMyApp sends a **GET request** to your URL to verify you own it. Your server must respond with the **verify token as the entire response body**. If the token doesn't match, the webhook URL won't be saved.
+
+```
+HookMyApp                          Your server
+GET /webhook  ──────────────────>  respond with verify token as body
+              <──────────────────  "your-secret-token"
+                                   ✓ URL verified, config saved
+```
+
+This starter kit handles the verification challenge automatically -- see the `GET /webhook` handler in `src/index.js`.
 
 ## Webhook Payload Format
 
