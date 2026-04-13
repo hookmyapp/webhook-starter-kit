@@ -78,11 +78,19 @@ app.post('/webhook', (req, res) => {
           const text = type === 'text' ? message.text?.body : `[${type}]`;
           console.log(`  Message from ${from}: ${text}`);
 
-          // Example: echo back received text messages
-          // Uncomment the lines below to auto-reply:
-          // if (type === 'text' && text) {
-          //   await sendMessage(from, `Echo: ${text}`);
-          // }
+          // Auto-reply to confirm the connection is working.
+          // Remove or customize this once you start building your own logic.
+          if (type === 'text') {
+            try {
+              await sendMessage(
+                from,
+                `✅ Your webhook is connected! We received your message:\n\n"${text}"\n\nYou're all set to start building with HookMyApp.`,
+              );
+              console.log(`  Replied to ${from}`);
+            } catch (err) {
+              console.error(`  Failed to reply: ${err.message}`);
+            }
+          }
         }
       } else {
         console.log(`  Data: ${JSON.stringify(change.value, null, 2)}`);
