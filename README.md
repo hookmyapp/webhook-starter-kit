@@ -1,33 +1,51 @@
 # HookMyApp Webhook Starter Kit
 
-Receive WhatsApp Business API webhooks via [HookMyApp](https://hookmyapp.com) in minutes. This starter kit gives you a ready-to-run Express server that receives webhook payloads forwarded by HookMyApp, verifies their signatures, and logs incoming WhatsApp messages. Fork it, configure your verify token, and start building.
+Receive and send WhatsApp messages via [HookMyApp](https://hookmyapp.com) in minutes. This starter kit gives you a ready-to-run Express server that receives webhook payloads, verifies their signatures, and logs incoming WhatsApp messages -- with a built-in `sendMessage` function to reply. Start with the free sandbox (no Meta account needed), then swap three env vars to go to production.
 
 ## Quick Start
 
-1. **Create your repo** -- click **"Use this template"** on GitHub, or clone directly:
-   ```bash
-   git clone https://github.com/hookmyapp/webhook-starter-kit.git
-   cd webhook-starter-kit
-   ```
+### 1. Get a sandbox session
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+Sign up at [hookmyapp.com](https://hookmyapp.com) and go to the **Sandbox** page in your dashboard.
 
-3. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   ```
-   Edit `.env` and set `VERIFY_TOKEN` to the same token you configured in your HookMyApp webhook settings.
+1. Click **Add testing session** and enter your phone number.
+2. Send the activation code to the sandbox WhatsApp number (the dashboard gives you a direct link).
+3. Once activated, click the **Copy .env** button (clipboard icon) in the Actions column -- this copies all the env vars you need.
 
-4. **Start the server:**
-   ```bash
-   npm start
-   ```
-   Or use `npm run dev` for auto-reload during development.
+### 2. Set up the starter kit
+
+```bash
+git clone https://github.com/hookmyapp/webhook-starter-kit.git
+cd webhook-starter-kit
+npm install
+cp .env.example .env
+```
+
+Paste the env vars you copied from the dashboard into `.env`, replacing the placeholder values.
+
+### 3. Start ngrok
+
+Your `.env` includes an `NGROK_AUTHTOKEN` scoped to your sandbox session. Use it to expose your local server:
+
+```bash
+npx ngrok http 3000
+```
+
+Copy the public `https://...ngrok-free.app` URL -- you'll need it in the next step.
+
+> **First time using ngrok?** The command above downloads and runs it automatically via npx. If you prefer, [install ngrok globally](https://ngrok.com/download) and set your token with `ngrok config add-authtoken <your-token>`.
+
+### 4. Start the server
+
+```bash
+npm run dev
+```
 
 Your webhook server is now running on `http://localhost:3000`.
+
+### 5. Connect your webhook
+
+Back in the HookMyApp dashboard, click the edit (pencil) icon on your session and paste your ngrok URL as the webhook URL. Send a WhatsApp message to the sandbox number -- you should see it logged in your terminal.
 
 ## How It Works
 
@@ -159,29 +177,7 @@ The starter kit rejects requests with invalid signatures by responding with `401
 
 ## Sending Messages
 
-The starter kit includes a `sendMessage` function that works with both the **HookMyApp sandbox** and the **production Meta API** -- same code, just different env vars.
-
-### Sandbox (for testing)
-
-Your sandbox session gives you everything you need. Copy the values from the HookMyApp dashboard:
-
-```bash
-WHATSAPP_API_URL=https://sandbox.hookmyapp.com/v22.0
-WHATSAPP_ACCESS_TOKEN=your-activation-code
-WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
-```
-
-### Production (Meta Cloud API)
-
-Swap the three env vars to point at Meta directly:
-
-```bash
-WHATSAPP_API_URL=https://graph.facebook.com/v22.0
-WHATSAPP_ACCESS_TOKEN=your-meta-access-token
-WHATSAPP_PHONE_NUMBER_ID=your-meta-phone-number-id
-```
-
-Get your production credentials with: `hookmyapp env <waba-id>`
+The starter kit includes a `sendMessage` function that works with both the **HookMyApp sandbox** and the **production Meta API**. The sandbox `.env` you copied from the dashboard already has everything configured -- just start sending.
 
 ### Usage
 
@@ -200,6 +196,20 @@ if (type === 'text' && text) {
 }
 ```
 
+### Moving to production
+
+When you're ready to go live, swap three env vars to point at Meta directly:
+
+```bash
+WHATSAPP_API_URL=https://graph.facebook.com/v22.0
+WHATSAPP_ACCESS_TOKEN=your-meta-access-token
+WHATSAPP_PHONE_NUMBER_ID=your-meta-phone-number-id
+```
+
+Get your production credentials with: `hookmyapp env <waba-id>`
+
+Your code stays exactly the same -- only the env vars change.
+
 ## Configuration
 
 | Variable | Default | Description |
@@ -209,6 +219,7 @@ if (type === 'text' && text) {
 | `WHATSAPP_API_URL` | `https://sandbox.hookmyapp.com/v22.0` | API base URL. Use `https://graph.facebook.com/v22.0` for production. |
 | `WHATSAPP_ACCESS_TOKEN` | -- | Your sandbox activation code or Meta access token. |
 | `WHATSAPP_PHONE_NUMBER_ID` | -- | Phone number ID from your sandbox session or Meta dashboard. |
+| `NGROK_AUTHTOKEN` | -- | Ngrok auth token from your sandbox session. Used to expose your local server. |
 
 ## Next Steps
 
