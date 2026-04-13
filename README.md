@@ -157,12 +157,58 @@ If you skip signature verification, your webhook endpoint is open to:
 
 The starter kit rejects requests with invalid signatures by responding with `401 Unauthorized`.
 
+## Sending Messages
+
+The starter kit includes a `sendMessage` function that works with both the **HookMyApp sandbox** and the **production Meta API** -- same code, just different env vars.
+
+### Sandbox (for testing)
+
+Your sandbox session gives you everything you need. Copy the values from the HookMyApp dashboard:
+
+```bash
+WHATSAPP_API_URL=https://sandbox.hookmyapp.com/v22.0
+WHATSAPP_ACCESS_TOKEN=your-activation-code
+WHATSAPP_PHONE_NUMBER_ID=your-phone-number-id
+```
+
+### Production (Meta Cloud API)
+
+Swap the three env vars to point at Meta directly:
+
+```bash
+WHATSAPP_API_URL=https://graph.facebook.com/v22.0
+WHATSAPP_ACCESS_TOKEN=your-meta-access-token
+WHATSAPP_PHONE_NUMBER_ID=your-meta-phone-number-id
+```
+
+Get your production credentials with: `hookmyapp env <waba-id>`
+
+### Usage
+
+```js
+import { sendMessage } from './src/index.js';
+
+// Send a text message
+await sendMessage('1234567890', 'Hello from my app!');
+```
+
+The echo-back example in `src/index.js` is commented out by default. Uncomment it to auto-reply to every incoming text message:
+
+```js
+if (type === 'text' && text) {
+  await sendMessage(from, `Echo: ${text}`);
+}
+```
+
 ## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `VERIFY_TOKEN` | `hookmyapp-verify` | Your HookMyApp verify token. Must match the token set in your HookMyApp webhook configuration. |
 | `PORT` | `3000` | Port the webhook server listens on. |
+| `WHATSAPP_API_URL` | `https://sandbox.hookmyapp.com/v22.0` | API base URL. Use `https://graph.facebook.com/v22.0` for production. |
+| `WHATSAPP_ACCESS_TOKEN` | -- | Your sandbox activation code or Meta access token. |
+| `WHATSAPP_PHONE_NUMBER_ID` | -- | Phone number ID from your sandbox session or Meta dashboard. |
 
 ## Next Steps
 
