@@ -32,20 +32,15 @@ export async function sendMessage(to, text) {
   return res.json();
 }
 
-// Health check
-app.get('/', (req, res) => {
-  res.json({ status: 'running', service: 'webhook-starter-kit' });
-});
-
 // Verification challenge -- when you configure your webhook URL in
-// HookMyApp, it sends a GET request to this endpoint. Your server must
-// respond with the verify token as the body to prove you own this URL.
-app.get('/webhook', (req, res) => {
+// HookMyApp, it sends a GET request to verify you own the URL.
+// Respond with the verify token to prove ownership.
+app.get('/', (req, res) => {
   res.send(VERIFY_TOKEN);
 });
 
 // Receive webhooks forwarded by HookMyApp
-app.post('/webhook', (req, res) => {
+app.post('/', async (req, res) => {
   const signature = req.get('X-HookMyApp-Signature-256');
 
   // Verify signature if present and VERIFY_TOKEN is configured
