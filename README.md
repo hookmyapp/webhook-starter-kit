@@ -18,11 +18,11 @@ cp .env.example .env
 Pick whichever method you prefer -- both give you the same `.env` values.
 
 <details>
-<summary><b>Option A: Dashboard</b> (visual)</summary>
+<summary><b>Option A: HookMyApp Web</b> (visual)</summary>
 
 1. Sign up at [hookmyapp.com](https://hookmyapp.com) and go to the **Sandbox** page.
 2. Click **Add testing session** and enter your phone number.
-3. Send the activation code to the sandbox WhatsApp number (the dashboard gives you a direct link).
+3. Send the activation code to the sandbox WhatsApp number (a direct link is provided).
 4. Once activated, click the **Copy .env** button (clipboard icon) in the Actions column.
 5. Paste into your `.env` file, replacing the placeholder values.
 
@@ -84,7 +84,7 @@ The payload arrives in the **original Meta format** -- HookMyApp does not modify
 
 ### Verification Challenge
 
-When you configure your webhook URL in HookMyApp (via the dashboard or CLI), HookMyApp sends a **GET request** to your URL to verify you own it. Your server must respond with the **verify token as the entire response body**. If the token doesn't match, the webhook URL won't be saved.
+When you configure your webhook URL in HookMyApp (via the web app or CLI), HookMyApp sends a **GET request** to your URL to verify you own it. Your server must respond with the **verify token as the entire response body**. If the token doesn't match, the webhook URL won't be saved.
 
 ```
 HookMyApp                          Your server
@@ -196,7 +196,7 @@ The starter kit rejects requests with invalid signatures by responding with `401
 
 ## Sending Messages
 
-The starter kit includes a `sendMessage` function that works with both the **HookMyApp sandbox** and the **production Meta API**. The sandbox `.env` you copied from the dashboard already has everything configured -- just start sending.
+The starter kit includes a `sendMessage` function that works with both the **HookMyApp sandbox** and the **production Meta API**. The sandbox `.env` you copied already has everything configured -- just start sending.
 
 ### Usage
 
@@ -237,7 +237,7 @@ Your code stays exactly the same -- only the env vars change.
 | `PORT` | `3000` | Port the webhook server listens on. |
 | `WHATSAPP_API_URL` | `https://sandbox.hookmyapp.com/v22.0` | API base URL. Use `https://graph.facebook.com/v22.0` for production. |
 | `WHATSAPP_ACCESS_TOKEN` | -- | Your sandbox activation code or Meta access token. |
-| `WHATSAPP_PHONE_NUMBER_ID` | -- | Phone number ID from your sandbox session or Meta dashboard. |
+| `WHATSAPP_PHONE_NUMBER_ID` | -- | Phone number ID from your sandbox session or Meta app. |
 | `NGROK_AUTHTOKEN` | -- | Ngrok auth token from your sandbox session. Used by `npm run tunnel`. |
 | `NGROK_DOMAIN` | -- | Ngrok domain assigned to your sandbox session (e.g., `sandbox-xxx.ngrok-free.app`). Used by `npm run tunnel`. |
 
