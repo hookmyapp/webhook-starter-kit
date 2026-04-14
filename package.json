@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/start.js",
     "dev": "node --watch src/index.js",
-    "tunnel": "node src/tunnel.js"
+    "tunnel": "node src/tunnel.js",
+    "test": "node --test test/*.test.cjs"
   },
   "dependencies": {
     "express": "^5.2.1",
