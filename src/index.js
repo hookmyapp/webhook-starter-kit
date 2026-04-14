@@ -5,7 +5,11 @@ import { createHmac } from 'node:crypto';
 const app = express();
 app.use(express.json());
 
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'hookmyapp-verify';
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+if (!VERIFY_TOKEN) {
+  console.error('VERIFY_TOKEN not set. Run: hookmyapp sandbox env --write .env');
+  process.exit(1);
+}
 const PORT = process.env.PORT || 3000;
 
 // Send a WhatsApp text message via sandbox proxy or production Meta API.
