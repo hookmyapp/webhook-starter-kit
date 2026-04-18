@@ -39,12 +39,12 @@ export async function sendMessage(to, text) {
 // Verification challenge -- when you configure your webhook URL in
 // HookMyApp, it sends a GET request to verify you own the URL.
 // Respond with the verify token to prove ownership.
-app.get('/', (req, res) => {
+app.get('/webhook', (req, res) => {
   res.send(VERIFY_TOKEN);
 });
 
 // Receive webhooks forwarded by HookMyApp
-app.post('/', async (req, res) => {
+app.post('/webhook', async (req, res) => {
   const signature = req.get('X-HookMyApp-Signature-256');
 
   // Verify signature if present and VERIFY_TOKEN is configured
