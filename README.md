@@ -45,8 +45,10 @@ The HookMyApp CLI owns your sandbox session lifecycle — starting the tunnel, i
 6. Test a message (optional):
 
    ```
-   hookmyapp sandbox send --to +<your-other-phone> --message "hello"
+   hookmyapp sandbox send --message "hello"
    ```
+
+   (Sandbox replies only to the session phone — you'll receive this on the phone you used to start the session. No `--to` flag exists.)
 
    You should see the payload logged in the terminal running `npm start`, and receive an auto-reply back on WhatsApp confirming the webhook is wired up.
 
@@ -66,7 +68,7 @@ The `.env.example` file lists the five keys the server expects — but you shoul
 
 ```
 WhatsApp user           Meta            HookMyApp           Your server
-sends message  ──────>  Cloud API  ──>  Forwarder  ──────>  POST /
+sends message  ──────>  Cloud API  ──>  Forwarder  ──────>  POST /webhook
                         webhook         signs with          verifies
                                         HMAC-SHA256         signature
 ```
@@ -80,7 +82,7 @@ The payload arrives in the **original Meta format** — HookMyApp does not trans
 
 ### Verification challenge
 
-When you first configure your webhook URL with HookMyApp (the CLI does this for you during `sandbox listen`), HookMyApp sends a `GET /` to your endpoint. Your server must respond with `VERIFY_TOKEN` as the entire response body. This kit handles that automatically in `src/index.js`.
+When you first configure your webhook URL with HookMyApp (the CLI does this for you during `sandbox listen`), HookMyApp sends a `GET /webhook` to your endpoint. Your server must respond with `VERIFY_TOKEN` as the entire response body. This kit handles that automatically in `src/index.js`.
 
 ### Signature verification
 
