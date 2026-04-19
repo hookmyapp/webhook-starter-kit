@@ -2,6 +2,10 @@
 
 A minimal Express.js starter for receiving WhatsApp webhooks via [HookMyApp](https://hookmyapp.com). This kit ships a verified-signature receiver, an auto-reply example, and a `sendMessage` helper that works identically against the free sandbox and the production Meta API.
 
+## For AI Agents
+
+If you're using an AI coding agent (Claude Code, Cursor, Codex, Gemini CLI, GitHub Copilot, etc.) to wire this kit up, read [AGENTS.md](./AGENTS.md) first. It is the self-contained guide your agent should follow — covering the sandbox quickstart, production setup, signature verification, the steps that need your manual confirmation, and safety rules around credentials. The tool-specific files (`CLAUDE.md`, `GEMINI.md`, `.cursorrules`, `.github/copilot-instructions.md`) are thin redirects that point your agent at AGENTS.md automatically.
+
 ## Quick start (CLI-first, ~2 minutes)
 
 The HookMyApp CLI owns your sandbox session lifecycle — starting the tunnel, issuing env values, and sending test messages. You should not need to hand-copy secrets; the CLI is the single source of truth.
