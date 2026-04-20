@@ -34,7 +34,15 @@ What this does: installs the `hookmyapp` binary globally so the rest of the step
 hookmyapp login
 ```
 
-> **HUMAN ACTION REQUIRED:** A browser tab opens for HookMyApp sign-in. The CLI polls for the callback and stores credentials in `~/.hookmyapp/`. Hand the terminal back to the human until they confirm sign-in completed.
+> **HUMAN ACTION REQUIRED:** A browser tab opens for HookMyApp sign-in. CLI polls for the callback and stores credentials locally (exact path is an implementation detail; don't script against it). Hand the terminal back to the human until they confirm sign-in completed.
+
+**Alternative — zero-browser (for AI-paste / CI):**
+
+```bash
+hookmyapp login --code <bootstrap>
+```
+
+If the human already minted a bootstrap code from the HookMyApp dashboard (Settings → CLI → "Mint bootstrap code"), they can paste it into this flag and skip the browser tab entirely. The code is single-use and expires quickly; surface a `> **HUMAN ACTION REQUIRED:**` only to paste the code value.
 
 ### 3. Install kit dependencies
 
@@ -111,21 +119,29 @@ Note the `waba_id` — you will pass it to the next three commands.
 hookmyapp env <waba-id>
 ```
 
-The output includes the production credentials. Map them into THIS kit's three runtime variables:
+`hookmyapp env <waba-id>` emits three keys. Map them into this kit's five-key `.env`:
 
-```bash
-WHATSAPP_API_URL=https://graph.facebook.com/v22.0
-WHATSAPP_ACCESS_TOKEN=<ACCESS_TOKEN from `hookmyapp env <waba-id>`>
-WHATSAPP_PHONE_NUMBER_ID=<PHONE_NUMBER_ID from `hookmyapp env <waba-id>`>
-```
+| `hookmyapp env <waba-id>` output | Kit `.env` key | Notes |
+|---|---|---|
+| `WABA_ID` | (unused by kit) | Keep for reference; the kit doesn't read it. |
+| `ACCESS_TOKEN` | `WHATSAPP_ACCESS_TOKEN` | Long-lived Meta access token. |
+| `PHONE_NUMBER_ID` | `WHATSAPP_PHONE_NUMBER_ID` | Meta phone number ID. |
+| — | `WHATSAPP_API_URL` | Hardcode `https://graph.facebook.com/v22.0` in production. |
+| — | `VERIFY_TOKEN` | User-chosen; set via `hookmyapp webhook set <waba-id> --verify-token <token>` (see step 5). |
+| — | `PORT` | Stays `3000` or whatever the kit was using in sandbox. |
 
-`VERIFY_TOKEN` and `PORT` stay as configured. The kit code does not change between sandbox and production — only these three values flip.
+The kit code in `src/index.js` does NOT change between sandbox and production — only these values flip.
 
 ### 5. Configure the production webhook URL
 
 ```bash
-hookmyapp webhook set <waba-id> --url https://your-public-host.example.com/webhook --env production
+hookmyapp webhook set <waba-id> \
+  --url https://your-public-host.example.com/webhook \
+  --verify-token <your-chosen-token> \
+  --env production
 ```
+
+Pick a strong random `VERIFY_TOKEN` (32+ chars) and pass it via `--verify-token`. This is what your server will use as the HMAC key for `X-HookMyApp-Signature-256` verification (same shape as sandbox — see Signature verification below). Omitting `--verify-token` leaves the prior token in place, which is desirable for URL-only rotation when you already have one.
 
 > **HUMAN ACTION REQUIRED:** Confirm the URL with the human BEFORE running this. A typo silently drops inbound customer messages — the human's call, not yours.
 
@@ -156,7 +172,9 @@ These operations cannot be automated. Stop and ask the human to do them:
 
 ## Signature verification
 
-Every inbound `POST /webhook` carries an `X-HookMyApp-Signature-256` header set to `sha256=<hex>` where the HMAC key is `VERIFY_TOKEN`. This kit's `src/index.js` uses the parsed-then-restringified body shape (because the kit ships with `express.json()` middleware). **Match this shape exactly when extending the kit — do not switch to a raw-body variant.**
+Every inbound `POST /webhook` from HookMyApp — **in both sandbox and production** — carries an `X-HookMyApp-Signature-256` header set to `sha256=<hex>` where the HMAC key is your `VERIFY_TOKEN`. HookMyApp's forwarder signs every outbound request this way; the customer-facing contract is a single shape, not two.
+
+This kit's `src/index.js` uses the parsed-then-restringified body shape because the kit ships with `express.json()` middleware. The forwarder signs `JSON.stringify(parsedBody)` on its side, and V8's `JSON.stringify` is deterministic, so parsed+restringified on your side is byte-equivalent to raw.
 
 ```js
 import { createHmac } from 'node:crypto';
@@ -169,7 +187,9 @@ function verifySignature(body, signature, verifyToken) {
 }
 ```
 
-Note: production deployments that point Meta's webhook at this kit will receive `X-Hub-Signature-256` keyed on Meta's `APP_SECRET` instead. This kit ships sandbox-shaped verification because that is what `hookmyapp sandbox listen` forwards. If you extend the kit for production, mirror the shape used by `src/index.js` (parsed body + `JSON.stringify`) for sandbox traffic and add a parallel `X-Hub-Signature-256` path keyed on `APP_SECRET` for direct Meta traffic.
+If you extend the kit and swap `express.json()` for `express.raw({ type: 'application/json' })`, update `.update(JSON.stringify(body))` to `.update(rawBody)` — the signature still matches because the forwarder sent the same bytes. What you must NOT do is mix the two (e.g., keep `express.json()` but hash the stringified representation of a manually re-encoded object with different whitespace) — that will break verification.
+
+> **Note:** Earlier versions of this guide and the HookMyApp skill mentioned a separate `X-Hub-Signature-256` path keyed on Meta's `APP_SECRET` for production. That path does **not** exist on the customer-facing interface — the forwarder verifies Meta's signature internally and re-signs with your `VERIFY_TOKEN` before forwarding. Do not wire an `APP_SECRET` verification branch on your server.
 
 ## Troubleshooting
 
@@ -181,10 +201,12 @@ Note: production deployments that point Meta's webhook at this kit will receive 
 | `sandbox send` rejects recipient | Sandbox pins recipient to the session phone; no `--to` flag exists. Move to production for multi-recipient. |
 | `channels connect` popup blocked | Allow popups from `app.hookmyapp.com`, or open the URL the CLI prints manually. |
 | `401 invalid_token` from Meta in production | Re-run `hookmyapp token <waba-id>`; if it still fails, `hookmyapp channels connect` to re-mint. |
+| Server logs show inbound webhooks but no request bodies | Re-run `hookmyapp sandbox listen --verbose` to stream full request/response bodies in the CLI terminal. |
+| `sandbox listen: tunnel closed` / cloudflared errors | Re-run with `hookmyapp sandbox listen --reinstall-tunnel-binary` to force-redownload the cloudflared binary. Then check outbound 443 to `*.trycloudflare.com` isn't firewalled. |
 
 ## Going further
 
 - `hookmyapp <command> --help` — print full flags for any command.
-- `hookmyapp --help` — full command surface (auth, workspace, channels, sandbox, webhook, env, token, health).
-- Global flags worth knowing: `--json` (machine-readable output), `--workspace <id>`, `--env staging|production`, `--debug`.
+- `hookmyapp --help` — full command surface (login, logout, workspace, channels, sandbox, webhook, env, token, health, billing, config).
+- Global flags worth knowing: `--json` (machine-readable output), `--workspace <name|slug|id>`, `--env local|staging|production`, `--debug`.
 - npm package: <https://www.npmjs.com/package/@gethookmyapp/cli>.
