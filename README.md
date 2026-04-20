@@ -22,7 +22,7 @@ The HookMyApp CLI owns your sandbox session lifecycle — starting the tunnel, i
    hookmyapp login
    ```
 
-   The wizard picks a workspace, prompts for a phone, and auto-chains into `hookmyapp sandbox listen`. Leave that terminal running — it forwards live webhooks through a Cloudflare tunnel to your local server.
+   The wizard picks a workspace and then prints a "Next steps" guide. If you want the wizard to chain straight into the tunnel automatically, run `hookmyapp login --next sandbox` instead. Either way, keep a terminal ready to run `hookmyapp sandbox listen` next — it forwards live webhooks through a Cloudflare tunnel to your local server.
 
 3. Clone this repo and install:
 
