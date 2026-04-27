@@ -4,11 +4,11 @@ A minimal Express.js starter for receiving WhatsApp webhooks via [HookMyApp](htt
 
 ## For AI Agents
 
-If you're using an AI coding agent (Claude Code, Cursor, Codex, Gemini CLI, GitHub Copilot, etc.) to wire this kit up, read [AGENTS.md](./AGENTS.md) first. It is the self-contained guide your agent should follow — covering the sandbox quickstart, production setup, signature verification, the steps that need your manual confirmation, and safety rules around credentials. The tool-specific files (`CLAUDE.md`, `GEMINI.md`, `.cursorrules`, `.github/copilot-instructions.md`) are thin redirects that point your agent at AGENTS.md automatically.
+If you're using an AI coding agent (Claude Code, Cursor, Codex, Gemini CLI, GitHub Copilot, etc.) to wire this kit up, read [AGENTS.md](./AGENTS.md) first. It is the self-contained guide your agent should follow, covering the sandbox quickstart, production setup, signature verification, the steps that need your manual confirmation, and safety rules around credentials. The tool-specific files (`CLAUDE.md`, `GEMINI.md`, `.cursorrules`, `.github/copilot-instructions.md`) are thin redirects that point your agent at AGENTS.md automatically.
 
 ## Quick start (CLI-first, ~2 minutes)
 
-The HookMyApp CLI owns your sandbox session lifecycle — starting the tunnel, issuing env values, and sending test messages. You should not need to hand-copy secrets; the CLI is the single source of truth.
+The HookMyApp CLI owns your sandbox session lifecycle: starting the tunnel, issuing env values, and sending test messages. You should not need to hand-copy secrets; the CLI is the single source of truth.
 
 1. Install the HookMyApp CLI:
 
@@ -22,7 +22,7 @@ The HookMyApp CLI owns your sandbox session lifecycle — starting the tunnel, i
    hookmyapp login
    ```
 
-   The wizard picks a workspace and then prints a "Next steps" guide. If you want the wizard to chain straight into the tunnel automatically, run `hookmyapp login --next sandbox` instead. Either way, keep a terminal ready to run `hookmyapp sandbox listen` next — it forwards live webhooks through a Cloudflare tunnel to your local server.
+   The wizard picks a workspace, prompts for a phone, and auto-chains into `hookmyapp sandbox listen`. Leave that terminal running. It forwards live webhooks through a Cloudflare tunnel to your local server.
 
 3. Clone this repo and install:
 
@@ -38,7 +38,7 @@ The HookMyApp CLI owns your sandbox session lifecycle — starting the tunnel, i
    hookmyapp sandbox env --write .env
    ```
 
-   (The CLI writes `VERIFY_TOKEN`, `PORT`, `WHATSAPP_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` into `.env` — exactly the five keys in `.env.example`.)
+   (The CLI writes `VERIFY_TOKEN`, `PORT`, `WHATSAPP_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` into `.env`, exactly the five keys in `.env.example`.)
 
 5. Start the server:
 
@@ -52,13 +52,13 @@ The HookMyApp CLI owns your sandbox session lifecycle — starting the tunnel, i
    hookmyapp sandbox send --message "hello"
    ```
 
-   (Sandbox replies only to the session phone — you'll receive this on the phone you used to start the session. No `--to` flag exists.)
+   (Sandbox replies only to the session phone. You'll receive this on the phone you used to start the session. No `--to` flag exists.)
 
    You should see the payload logged in the terminal running `npm start`, and receive an auto-reply back on WhatsApp confirming the webhook is wired up.
 
 ## Environment
 
-The `.env.example` file lists the five keys the server expects — but you should not need to copy them manually. The CLI is the source of truth: run `hookmyapp sandbox env --write` after each new sandbox session and your `.env` stays in sync with the session's current secrets.
+The `.env.example` file lists the five keys the server expects, but you should not need to copy them manually. The CLI is the source of truth: run `hookmyapp sandbox env --write` after each new sandbox session and your `.env` stays in sync with the session's current secrets.
 
 | Variable | Description |
 |----------|-------------|
@@ -82,7 +82,7 @@ sends message  ──────>  Cloud API  ──>  Forwarder  ────�
 3. HookMyApp signs the payload with your session `VERIFY_TOKEN` (HMAC-SHA256) and forwards it through a Cloudflare tunnel to your local server.
 4. Your server verifies the signature and processes the message.
 
-The payload arrives in the **original Meta format** — HookMyApp does not transform the body. Use Meta's official WhatsApp Cloud API docs for the full payload schema.
+The payload arrives in the **original Meta format**. HookMyApp does not transform the body. Use Meta's official WhatsApp Cloud API docs for the full payload schema.
 
 ### Verification challenge
 
@@ -90,7 +90,7 @@ When you first configure your webhook URL with HookMyApp (the CLI does this for 
 
 ### Signature verification
 
-Every forwarded webhook includes an `X-HookMyApp-Signature-256` header set to `sha256={hex}` where the HMAC key is your `VERIFY_TOKEN`. This kit verifies the signature on every inbound POST and rejects mismatches with `401 Unauthorized`. Always verify signatures in production — without verification, anyone who discovers your webhook URL could POST fake payloads.
+Every forwarded webhook includes an `X-HookMyApp-Signature-256` header set to `sha256={hex}` where the HMAC key is your `VERIFY_TOKEN`. This kit verifies the signature on every inbound POST and rejects mismatches with `401 Unauthorized`. Always verify signatures in production. Without verification, anyone who discovers your webhook URL could POST fake payloads.
 
 The core verification logic (see `src/index.js`):
 
@@ -109,7 +109,7 @@ function verifySignature(body, signature, verifyToken) {
 
 ## Sending messages
 
-The `sendMessage` helper in `src/index.js` works identically against the sandbox and production Meta API — only the three `WHATSAPP_*` env values change.
+The `sendMessage` helper in `src/index.js` works identically against the sandbox and production Meta API. Only the three `WHATSAPP_*` env values change.
 
 ```js
 import { sendMessage } from './src/index.js';
@@ -123,16 +123,20 @@ The echo-back example in `src/index.js` is enabled by default so you can verify 
 
 When you're ready to move off the sandbox and onto a real WABA, swap the three `WHATSAPP_*` values to your production credentials and point `WHATSAPP_API_URL` at `https://graph.facebook.com/v22.0`. The webhook receiver, signature verification, and `sendMessage` helper all stay the same.
 
+## Logs UI
+
+While the server is running, visit `http://localhost:3000/logs` (or whatever `PORT` you configured) in your browser to see incoming webhooks live. Toggle between Compact (one row per webhook) and Verbose (full headers and payload) with the header toggle or by pressing `v`. Press `c` to clear the on-screen log. Buffer is in-memory only and capped at the last 100 webhooks.
+
 ## Next steps
 
-- **Add your business logic** — edit `src/index.js` to process incoming messages, send replies, or trigger workflows.
-- **Deploy** — host this server on any platform (Railway, Render, Fly.io, AWS, etc.). Update your webhook URL via `hookmyapp webhook set` once deployed.
-- **Read the docs** — visit [hookmyapp.com](https://hookmyapp.com) for full documentation.
+- **Add your business logic**: edit `src/index.js` to process incoming messages, send replies, or trigger workflows.
+- **Deploy**: host this server on any platform (Railway, Render, Fly.io, AWS, etc.). Update your webhook URL via `hookmyapp webhook set` once deployed.
+- **Read the docs**: visit [hookmyapp.com](https://hookmyapp.com) for full documentation.
 
 ## Links
 
-- [HookMyApp](https://hookmyapp.com) — WhatsApp Business API integration platform
-- [HookMyApp CLI](https://www.npmjs.com/package/@gethookmyapp/cli) — command-line tool for sandbox sessions, env values, and message sending
+- [HookMyApp](https://hookmyapp.com): WhatsApp Business API integration platform
+- [HookMyApp CLI](https://www.npmjs.com/package/@gethookmyapp/cli): command-line tool for sandbox sessions, env values, and message sending
 
 ## License
 
