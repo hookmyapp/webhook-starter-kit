@@ -1,9 +1,13 @@
 import express from 'express';
 import 'dotenv/config';
 import { createHmac } from 'node:crypto';
+import { createLogBuffer, mountLogs } from './logs.js';
 
 const app = express();
 app.use(express.json());
+
+const logBuffer = createLogBuffer({ cap: 100 });
+mountLogs(app, logBuffer);
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 if (!VERIFY_TOKEN) {
@@ -56,9 +60,40 @@ app.post('/webhook', async (req, res) => {
         .digest('hex');
 
     if (signature !== expectedSignature) {
-      console.warn('Invalid signature — rejecting webhook');
+      console.warn('Invalid signature, rejecting webhook');
       return res.sendStatus(401);
     }
+  }
+
+  try {
+    logBuffer.push({
+      id:
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      receivedAt: new Date().toISOString(),
+      method: req.method,
+      path: '/webhook',
+      headers: {
+        'x-hookmyapp-signature-256':
+          req.get('X-HookMyApp-Signature-256') ?? null,
+        'content-type': req.get('Content-Type') ?? null,
+        'user-agent': req.get('User-Agent') ?? null,
+      },
+      signatureValid: signature
+        ? signature ===
+          'sha256=' +
+            createHmac('sha256', VERIFY_TOKEN)
+              .update(JSON.stringify(req.body))
+              .digest('hex')
+        : null,
+      byteSize: Buffer.byteLength(JSON.stringify(req.body)),
+      rawBody: req.body,
+    });
+  } catch (err) {
+    process.stderr.write(
+      `logs buffer push failed (non-fatal): ${err.message}\n`,
+    );
   }
 
   const { object, entry } = req.body;
