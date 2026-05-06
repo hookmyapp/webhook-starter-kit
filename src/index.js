@@ -98,11 +98,16 @@ export async function handleInbound(message, ctx) {
     }
   }
   if (message.type === 'text' && chatPush) {
+    // Meta's payload shape is `text: { body: '...' }` — extract the body
+    // so /chat renders the string, not [object Object].
+    const textBody = typeof message.text === 'string'
+      ? message.text
+      : (message.text?.body ?? '');
     chatPush({
       direction: 'in',
       from,
       to: process.env.WHATSAPP_PHONE_NUMBER_ID || null,
-      text: message.text ?? '',
+      text: textBody,
       ts: new Date().toISOString(),
     });
   }
