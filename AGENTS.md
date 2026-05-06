@@ -119,18 +119,7 @@ Note the `waba_id` — you will pass it to the next three commands.
 hookmyapp env <waba-id>
 ```
 
-`hookmyapp env <waba-id>` emits three keys. Map them into this kit's five-key `.env`:
-
-| `hookmyapp env <waba-id>` output | Kit `.env` key | Notes |
-|---|---|---|
-| `WABA_ID` | (unused by kit) | Keep for reference; the kit doesn't read it. |
-| `ACCESS_TOKEN` | `WHATSAPP_ACCESS_TOKEN` | Long-lived Meta access token. |
-| `PHONE_NUMBER_ID` | `WHATSAPP_PHONE_NUMBER_ID` | Meta phone number ID. |
-| — | `WHATSAPP_API_URL` | Hardcode `https://graph.facebook.com/v22.0` in production. |
-| — | `VERIFY_TOKEN` | User-chosen; set via `hookmyapp webhook set <waba-id> --verify-token <token>` (see step 5). |
-| — | `PORT` | Stays `3000` or whatever the kit was using in sandbox. |
-
-The kit code in `src/index.js` does NOT change between sandbox and production — only these values flip.
+`hookmyapp env <waba-id>` emits the three keys needed. Credentials in your .env use the WHATSAPP_ prefix everywhere (kit, CLI, frontend download, docs). The kit code in `src/index.js` does NOT change between sandbox and production — only these values flip.
 
 ### 5. Configure the production webhook URL
 
@@ -169,6 +158,20 @@ These operations cannot be automated. Stop and ask the human to do them:
 - **Never** run `hookmyapp webhook set ... --env production` without explicit human URL confirmation. A typo silently drops inbound customer messages.
 - **Never** generate sandbox template-message examples — the sandbox proxy rejects templates and only `type: "text"` works in sandbox. Templates are production-only.
 - **Never** hand-edit `.env` to bypass `hookmyapp sandbox env --write`. The CLI is the source of truth; manual values drift the moment the sandbox session rotates.
+
+## /chat — local conversation viewer
+
+While the server is running, visit `http://localhost:3000/chat` (or whatever `PORT` you configured, noting port-fallback if 3000 is taken) in your browser. You will see a per-phone threaded view of inbound and outbound messages — it is in-memory only and clears on restart.
+
+Type into the bottom input and press Enter to send a message. This posts to `POST /chat/send`, which calls `sendMessage` with your credentials. The view mirrors the styling and server-sent events (SSE) retry behavior of the `/logs` surface.
+
+## Tutorial trail
+
+When your server receives the first inbound text from a phone, a 5-step guided tutorial fires automatically. It advances to the next step on any reply from that phone. The state persists to `.tutorial-state.json` in the kit's working directory (gitignored).
+
+Step 5 is final and instructs the developer to find and edit the `// CUSTOMIZE` marker in `src/index.js`. On save, Node `--watch` restarts the server. The persistent state ensures the tour does not re-fire from step 1.
+
+To redo the tour: delete `.tutorial-state.json` and send a message from a new phone, or clear the `completedStep` in the JSON file and restart the server.
 
 ## Signature verification
 
