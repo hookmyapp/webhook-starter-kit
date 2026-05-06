@@ -155,7 +155,7 @@ const HTML_PAGE =
   '<head>\n' +
   '<meta charset="utf-8">\n' +
   '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
-  '<title>HookMyApp Webhook Logs</title>\n' +
+  '<title>HookMyApp Starter Kit · Logs</title>\n' +
   '<link rel="preconnect" href="https://fonts.googleapis.com">\n' +
   '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n' +
   '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap">\n' +
@@ -206,19 +206,22 @@ const HTML_PAGE =
   '  background: var(--panel);\n' +
   '  border-bottom: 1px solid var(--border-subtle);\n' +
   '}\n' +
-  '.brand { display: flex; flex-direction: column; line-height: 1.1; }\n' +
+  '.brand { display: flex; align-items: baseline; gap: 8px; }\n' +
   '.brand .wordmark {\n' +
-  '  font-size: 16px;\n' +
-  '  font-weight: 510;\n' +
+  '  font-size: 15px;\n' +
+  '  font-weight: 600;\n' +
   '  color: var(--text-primary);\n' +
-  '  letter-spacing: -0.165px;\n' +
+  '  letter-spacing: -0.01em;\n' +
   '}\n' +
   '.brand .sub {\n' +
   '  font-size: 12px;\n' +
   '  font-weight: 400;\n' +
   '  color: var(--text-tertiary);\n' +
-  '  margin-top: 2px;\n' +
   '}\n' +
+  'nav.tabs { display: flex; gap: 2px; padding: 3px; background: var(--surface); border-radius: 8px; margin-left: 24px; }\n' +
+  'nav.tabs a { padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--text-tertiary); text-decoration: none; border-radius: 6px; transition: color 120ms, background 120ms; }\n' +
+  'nav.tabs a:hover { color: var(--text-primary); }\n' +
+  'nav.tabs a.active { color: var(--text-primary); background: var(--surface-2); }\n' +
   '.toggle {\n' +
   '  display: inline-flex;\n' +
   '  gap: 2px;\n' +
@@ -393,9 +396,13 @@ const HTML_PAGE =
   '<body>\n' +
   '<header class="bar">\n' +
   '  <div class="brand">\n' +
-  '    <span class="wordmark">HookMyApp</span>\n' +
-  '    <span class="sub">Webhook Logs</span>\n' +
+  '    <span class="wordmark">HookMyApp Starter Kit</span>\n' +
+  '    <span class="sub">Logs</span>\n' +
   '  </div>\n' +
+  '  <nav class="tabs" aria-label="Sections">\n' +
+  '    <a href="/chat">Chat</a>\n' +
+  '    <a href="/logs" class="active" aria-current="page">Logs</a>\n' +
+  '  </nav>\n' +
   '  <div class="toggle" role="tablist" aria-label="View mode">\n' +
   '    <button id="mode-compact" role="tab" aria-selected="true">Compact</button>\n' +
   '    <button id="mode-verbose" role="tab" aria-selected="false">Verbose</button>\n' +
