@@ -200,12 +200,14 @@ const HTML_PAGE =
   '  z-index: 10;\n' +
   '  display: flex;\n' +
   '  align-items: center;\n' +
-  '  justify-content: space-between;\n' +
-  '  height: 52px;\n' +
+  '  gap: 16px;\n' +
+  '  height: 56px;\n' +
   '  padding: 0 20px;\n' +
   '  background: var(--panel);\n' +
   '  border-bottom: 1px solid var(--border-subtle);\n' +
   '}\n' +
+  'header.bar .right { margin-left: auto; display: flex; align-items: center; gap: 12px; }\n' +
+  'header.bar .toggle { /* keep toggle in flow next to nav, not pushed to the right */ }\n' +
   '.brand { display: flex; align-items: baseline; gap: 8px; }\n' +
   '.brand .wordmark {\n' +
   '  font-size: 15px;\n' +
@@ -218,7 +220,7 @@ const HTML_PAGE =
   '  font-weight: 400;\n' +
   '  color: var(--text-tertiary);\n' +
   '}\n' +
-  'nav.tabs { display: flex; gap: 2px; padding: 3px; background: var(--surface); border-radius: 8px; margin-left: 24px; }\n' +
+  'nav.tabs { display: flex; gap: 2px; padding: 3px; background: var(--surface); border-radius: 8px; }\n' +
   'nav.tabs a { padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--text-tertiary); text-decoration: none; border-radius: 6px; transition: color 120ms, background 120ms; }\n' +
   'nav.tabs a:hover { color: var(--text-primary); }\n' +
   'nav.tabs a.active { color: var(--text-primary); background: var(--surface-2); }\n' +
@@ -397,7 +399,6 @@ const HTML_PAGE =
   '<header class="bar">\n' +
   '  <div class="brand">\n' +
   '    <span class="wordmark">HookMyApp Starter Kit</span>\n' +
-  '    <span class="sub">Logs</span>\n' +
   '  </div>\n' +
   '  <nav class="tabs" aria-label="Sections">\n' +
   '    <a href="/chat">Chat</a>\n' +
