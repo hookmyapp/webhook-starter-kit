@@ -94,3 +94,24 @@ test('handleInbound calls markAsRead even when tutorial is over', async () => {
   }
   assert.equal(reads.length, 6);
 });
+
+test('handleInbound extracts text.body from real Meta payload shape', async () => {
+  const pushed = [];
+  const fakeSendMessage = async () => {};
+  const fakeMarkAsRead = async () => {};
+  const { handleInbound } = await import('../src/index.js');
+  await handleInbound(
+    { from: '15557777777', type: 'text', text: { body: 'hi from meta' }, id: 'wamid.meta' },
+    {
+      sendMessage: fakeSendMessage,
+      markAsRead: fakeMarkAsRead,
+      port: 4001,
+      chatPush: (e) => pushed.push(e),
+    },
+  );
+  // Two pushes: inbound (the message) + outbound (tutorial step 1 reply).
+  const inbound = pushed.find((p) => p.direction === 'in');
+  assert.ok(inbound, 'expected an inbound push');
+  assert.equal(inbound.text, 'hi from meta');
+  assert.notEqual(inbound.text, '[object Object]');
+});
