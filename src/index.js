@@ -135,6 +135,44 @@ app.post('/webhook', async (req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Webhook server listening on port ${PORT}`);
-});
+export function listenWithFallback(targetApp, startPort) {
+  const start = Number(startPort) || 3000;
+  const max = start + 9;
+  return new Promise((resolveBind, rejectBind) => {
+    function attempt(port) {
+      if (port > max) {
+        rejectBind(
+          new Error(
+            `ports ${start}-${max} all in use; set PORT=<free-port> in .env`,
+          ),
+        );
+        return;
+      }
+      const server = targetApp.listen(port, () => resolveBind(port));
+      server.on('error', (err) => {
+        if (err && err.code === 'EADDRINUSE') {
+          try { server.close(); } catch { /* noop */ }
+          attempt(port + 1);
+          return;
+        }
+        rejectBind(err);
+      });
+    }
+    attempt(start);
+  });
+}
+
+// Bind the server. Templated into tutorial messages so the dev sees the
+// real localhost URL, even when PORT was already taken.
+export let boundPort = null;
+if (process.env.NODE_ENV !== 'test') {
+  listenWithFallback(app, Number(PORT) || 3000)
+    .then((port) => {
+      boundPort = port;
+      console.log(`Webhook server listening on port ${port}`);
+    })
+    .catch((err) => {
+      console.error(err.message);
+      process.exit(1);
+    });
+}
