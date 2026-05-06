@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { listenWithFallback } from '../src/index.js';
+// Must set NODE_ENV=test BEFORE importing src/index.js or the kit's
+// auto-bind side-effect runs and keeps the test process alive.
+process.env.NODE_ENV = 'test';
+process.env.VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'tk';
+const { listenWithFallback } = await import('../src/index.js');
 
 function fakeApp(unavailablePorts) {
   return {
