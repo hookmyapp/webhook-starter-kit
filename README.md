@@ -127,6 +127,28 @@ When you're ready to move off the sandbox and onto a real WABA, swap the three `
 
 While the server is running, visit `http://localhost:3000/logs` (or whatever `PORT` you configured) in your browser to see incoming webhooks live. Toggle between Compact (one row per webhook) and Verbose (full headers and payload) with the header toggle or by pressing `v`. Press `c` to clear the on-screen log. Buffer is in-memory only and capped at the last 100 webhooks.
 
+## /chat — local conversation viewer
+
+While the server is running, visit `http://localhost:3000/chat` (or whatever `PORT` you configured, noting port-fallback if 3000 is taken) in your browser. You will see a per-phone threaded view of inbound and outbound messages — it is in-memory only and clears on restart.
+
+Type into the bottom input and press Enter to send a message. This posts to `POST /chat/send`, which calls `sendMessage` with your credentials. The view mirrors the styling and server-sent events (SSE) retry behavior of the `/logs` surface.
+
+## Tutorial trail
+
+When your server receives the first inbound text from a phone, a 5-step guided tutorial fires automatically. It advances to the next step on any reply from that phone. The state persists to `.tutorial-state.json` in the kit's working directory (gitignored).
+
+Step 5 is final and instructs the developer to find and edit the `// CUSTOMIZE` marker in `src/index.js`. On save, Node `--watch` restarts the server. The persistent state ensures the tour does not re-fire from step 1.
+
+To redo the tour: delete `.tutorial-state.json` and send a message from a new phone, or clear the `completedStep` in the JSON file and restart the server.
+
+## Quickstart
+
+1. Install the HookMyApp CLI: `npm install -g @gethookmyapp/cli`
+2. Pull sandbox env: `hookmyapp sandbox env --write .env`
+3. Start the server: `npm run dev`
+4. Open the tunnel (second terminal): `hookmyapp sandbox listen`
+5. Send "hi" to your sandbox number from your phone, then follow the on-screen prompts.
+
 ## Next steps
 
 - **Add your business logic**: edit `src/index.js` to process incoming messages, send replies, or trigger workflows.
