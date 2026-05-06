@@ -127,7 +127,7 @@ When you're ready to move off the sandbox and onto a real WABA, swap the three `
 
 While the server is running, visit `http://localhost:3000/logs` (or whatever `PORT` you configured) in your browser to see incoming webhooks live. Toggle between Compact (one row per webhook) and Verbose (full headers and payload) with the header toggle or by pressing `v`. Press `c` to clear the on-screen log. Buffer is in-memory only and capped at the last 100 webhooks.
 
-## /chat — local conversation viewer
+## /chat (local conversation viewer)
 
 While the server is running, visit `http://localhost:3000/chat` (or whatever `PORT` you configured, noting port-fallback if 3000 is taken) in your browser. You will see a per-phone threaded view of inbound and outbound messages. The view is in-memory only and clears on restart.
 
