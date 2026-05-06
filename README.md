@@ -129,7 +129,7 @@ While the server is running, visit `http://localhost:3000/logs` (or whatever `PO
 
 ## /chat — local conversation viewer
 
-While the server is running, visit `http://localhost:3000/chat` (or whatever `PORT` you configured, noting port-fallback if 3000 is taken) in your browser. You will see a per-phone threaded view of inbound and outbound messages — it is in-memory only and clears on restart.
+While the server is running, visit `http://localhost:3000/chat` (or whatever `PORT` you configured, noting port-fallback if 3000 is taken) in your browser. You will see a per-phone threaded view of inbound and outbound messages. The view is in-memory only and clears on restart.
 
 Type into the bottom input and press Enter to send a message. This posts to `POST /chat/send`, which calls `sendMessage` with your credentials. The view mirrors the styling and server-sent events (SSE) retry behavior of the `/logs` surface.
 

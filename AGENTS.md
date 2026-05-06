@@ -119,7 +119,7 @@ Note the `waba_id` — you will pass it to the next three commands.
 hookmyapp env <waba-id>
 ```
 
-`hookmyapp env <waba-id>` emits the three keys needed. Credentials in your .env use the WHATSAPP_ prefix everywhere (kit, CLI, frontend download, docs). The kit code in `src/index.js` does NOT change between sandbox and production — only these values flip.
+`hookmyapp env <waba-id>` emits the three keys needed. Credentials in your .env use the WHATSAPP_ prefix everywhere (kit, CLI, frontend download, docs). The kit code in `src/index.js` does NOT change between sandbox and production. Only these values flip.
 
 ### 5. Configure the production webhook URL
 
@@ -161,7 +161,7 @@ These operations cannot be automated. Stop and ask the human to do them:
 
 ## /chat — local conversation viewer
 
-While the server is running, visit `http://localhost:3000/chat` (or whatever `PORT` you configured, noting port-fallback if 3000 is taken) in your browser. You will see a per-phone threaded view of inbound and outbound messages — it is in-memory only and clears on restart.
+While the server is running, visit `http://localhost:3000/chat` (or whatever `PORT` you configured, noting port-fallback if 3000 is taken) in your browser. You will see a per-phone threaded view of inbound and outbound messages. The view is in-memory only and clears on restart.
 
 Type into the bottom input and press Enter to send a message. This posts to `POST /chat/send`, which calls `sendMessage` with your credentials. The view mirrors the styling and server-sent events (SSE) retry behavior of the `/logs` surface.
 
