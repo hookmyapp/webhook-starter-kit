@@ -2,6 +2,14 @@ import express from 'express';
 import 'dotenv/config';
 import { createHmac } from 'node:crypto';
 import { createLogBuffer, mountLogs } from './logs.js';
+import {
+  loadState,
+  saveState,
+  getStep,
+  advance,
+  getStepMessage,
+  TOTAL_STEPS,
+} from './tutorial.js';
 
 const app = express();
 app.use(express.json());
@@ -15,6 +23,14 @@ if (!VERIFY_TOKEN) {
   process.exit(1);
 }
 const PORT = process.env.PORT || 3000;
+
+const TUTORIAL_STATE_PATH =
+  process.env.TUTORIAL_STATE_PATH ||
+  new URL('../.tutorial-state.json', import.meta.url).pathname;
+const tutorialState = loadState(TUTORIAL_STATE_PATH);
+
+// Reassigned in /chat wire-up (Task 15).
+let chatBuffer = null;
 
 // Send a WhatsApp text message via sandbox proxy or production Meta API.
 // Works identically with both -- just swap the three WHATSAPP_* env vars.
@@ -61,6 +77,57 @@ export async function markAsRead(messageId) {
     throw new Error(`WhatsApp API error ${res.status}: ${JSON.stringify(err)}`);
   }
   return res.json();
+}
+
+// Pure inbound-text handler. Takes the WhatsApp message + a context with
+// injectable side-effects so it's unit-testable without booting Express.
+// Returns { tutorialActive: boolean } so the caller decides whether to
+// also fire the user's customized auto-reply.
+export async function handleInbound(message, ctx) {
+  const { sendMessage, markAsRead, port, chatPush } = ctx;
+  const from = message.from;
+  // Mark every inbound as read regardless of state.
+  if (message.id) {
+    try { await markAsRead(message.id); } catch (err) {
+      process.stderr.write(`markAsRead failed (non-fatal): ${err.message}\n`);
+    }
+  }
+  if (message.type === 'text' && chatPush) {
+    chatPush({
+      direction: 'in',
+      from,
+      to: process.env.WHATSAPP_PHONE_NUMBER_ID || null,
+      text: message.text ?? '',
+      ts: new Date().toISOString(),
+    });
+  }
+  if (message.type !== 'text') return { tutorialActive: false };
+  const current = getStep(tutorialState, from);
+  if (current < TOTAL_STEPS) {
+    const next = advance(tutorialState, from);
+    const body = getStepMessage(next, port);
+    if (body) {
+      try {
+        await sendMessage(from, body);
+        if (chatPush) {
+          chatPush({
+            direction: 'out',
+            from: process.env.WHATSAPP_PHONE_NUMBER_ID || null,
+            to: from,
+            text: body,
+            ts: new Date().toISOString(),
+          });
+        }
+      } catch (err) {
+        process.stderr.write(`tutorial send failed (non-fatal): ${err.message}\n`);
+      }
+      try { saveState(TUTORIAL_STATE_PATH, tutorialState); } catch (err) {
+        process.stderr.write(`tutorial save failed (non-fatal): ${err.message}\n`);
+      }
+    }
+    return { tutorialActive: true };
+  }
+  return { tutorialActive: false };
 }
 
 // Verification challenge -- when you configure your webhook URL in
@@ -135,17 +202,24 @@ app.post('/webhook', async (req, res) => {
           const text = type === 'text' ? message.text?.body : `[${type}]`;
           console.log(`  Message from ${from}: ${text}`);
 
-          // Auto-reply to confirm the connection is working.
-          // Remove or customize this once you start building your own logic.
           if (type === 'text') {
-            try {
-              await sendMessage(
-                from,
-                `✅ Your webhook is connected! We received your message:\n\n"${text}"\n\nYou're all set to start building with HookMyApp.`,
-              );
-              console.log(`  Replied to ${from}`);
-            } catch (err) {
-              console.error(`  Failed to reply: ${err.message}`);
+            const { tutorialActive } = await handleInbound(message, {
+              sendMessage,
+              markAsRead,
+              port: boundPort ?? (Number(PORT) || 3000),
+              chatPush: chatBuffer ? (e) => chatBuffer.push(e) : null,
+            });
+            if (!tutorialActive) {
+              try {
+                // CUSTOMIZE: change this auto-reply text to whatever you want
+                await sendMessage(
+                  from,
+                  `✅ Your webhook is connected! We received your message:\n\n"${text}"\n\nYou're all set to start building with HookMyApp.`,
+                );
+                console.log(`  Replied to ${from}`);
+              } catch (err) {
+                console.error(`  Failed to reply: ${err.message}`);
+              }
             }
           }
         }
