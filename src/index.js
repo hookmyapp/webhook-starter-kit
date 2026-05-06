@@ -40,6 +40,29 @@ export async function sendMessage(to, text) {
   return res.json();
 }
 
+// Mark an inbound message as read. Drives the blue ✓✓ ticks tutorial
+// step 3 calls out. Same auth / endpoint shape as sendMessage.
+export async function markAsRead(messageId) {
+  const url = `${process.env.WHATSAPP_API_URL}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: messageId,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`WhatsApp API error ${res.status}: ${JSON.stringify(err)}`);
+  }
+  return res.json();
+}
+
 // Verification challenge -- when you configure your webhook URL in
 // HookMyApp, it sends a GET request to verify you own the URL.
 // Respond with the verify token to prove ownership.
