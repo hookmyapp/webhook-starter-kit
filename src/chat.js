@@ -92,10 +92,9 @@ const HTML_PAGE =
   'body { background: var(--canvas); color: var(--text-primary); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; font-feature-settings: "ss01","ss02"; }\n' +
   '\n' +
   '/* Header */\n' +
-  'header.bar { display: flex; align-items: center; gap: 24px; height: 56px; padding: 0 20px; background: var(--panel); border-bottom: 1px solid var(--border-subtle); }\n' +
+  'header.bar { display: flex; align-items: center; gap: 16px; height: 56px; padding: 0 20px; background: var(--panel); border-bottom: 1px solid var(--border-subtle); }\n' +
   '.brand { display: flex; align-items: baseline; gap: 8px; }\n' +
   '.brand .wordmark { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }\n' +
-  '.brand .sub { font-size: 12px; color: var(--text-tertiary); font-weight: 400; }\n' +
   'nav.tabs { display: flex; gap: 2px; padding: 3px; background: var(--surface); border-radius: 8px; }\n' +
   'nav.tabs a { padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--text-tertiary); text-decoration: none; border-radius: 6px; transition: color 120ms, background 120ms; }\n' +
   'nav.tabs a:hover { color: var(--text-primary); }\n' +
@@ -118,7 +117,7 @@ const HTML_PAGE =
   '.phone-row .num { font-size: 13.5px; font-weight: 510; color: var(--text-primary); }\n' +
   '.phone-row .when { font-size: 11px; color: var(--text-tertiary); white-space: nowrap; }\n' +
   '.phone-row .preview { font-size: 12.5px; color: var(--text-tertiary); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n' +
-  '.phone-row .preview .arrow { color: var(--text-tertiary); margin-right: 4px; }\n' +
+  '.phone-row .preview .you { color: var(--text-secondary); font-weight: 500; }\n' +
   '\n' +
   '/* Main panel */\n' +
   'main.panel { display: flex; flex-direction: column; height: 100%; min-width: 0; }\n' +
@@ -170,7 +169,7 @@ const HTML_PAGE =
   '</head>\n' +
   '<body>\n' +
   '<header class="bar">\n' +
-  '  <div class="brand"><span class="wordmark">HookMyApp Starter Kit</span><span class="sub">Chat</span></div>\n' +
+  '  <div class="brand"><span class="wordmark">HookMyApp Starter Kit</span></div>\n' +
   '  <nav class="tabs" aria-label="Sections">\n' +
   '    <a href="/chat" class="active" aria-current="page">Chat</a>\n' +
   '    <a href="/logs">Logs</a>\n' +
@@ -271,9 +270,10 @@ const HTML_PAGE =
   '      row.appendChild(top);\n' +
   '      if (last) {\n' +
   '        var prev = document.createElement("div"); prev.className = "preview";\n' +
-  '        var arrow = document.createElement("span"); arrow.className = "arrow";\n' +
-  '        arrow.textContent = last.direction === "out" ? "↑" : "↓";\n' +
-  '        prev.appendChild(arrow);\n' +
+  '        if (last.direction === "out") {\n' +
+  '          var you = document.createElement("span"); you.className = "you"; you.textContent = "You: ";\n' +
+  '          prev.appendChild(you);\n' +
+  '        }\n' +
   '        var text = document.createTextNode(last.text == null ? "" : String(last.text));\n' +
   '        prev.appendChild(text);\n' +
   '        row.appendChild(prev);\n' +
