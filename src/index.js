@@ -2,6 +2,7 @@ import express from 'express';
 import 'dotenv/config';
 import { createHmac } from 'node:crypto';
 import { createLogBuffer, mountLogs } from './logs.js';
+import { createChatBuffer, mountChat } from './chat.js';
 import {
   loadState,
   saveState,
@@ -31,6 +32,10 @@ const tutorialState = loadState(TUTORIAL_STATE_PATH);
 
 // Reassigned in /chat wire-up (Task 15).
 let chatBuffer = null;
+
+// Wire up chat buffer (Task 15).
+chatBuffer = createChatBuffer({ capPerPhone: 100 });
+mountChat(app, chatBuffer, { sendMessage });
 
 // Send a WhatsApp text message via sandbox proxy or production Meta API.
 // Works identically with both -- just swap the three WHATSAPP_* env vars.
