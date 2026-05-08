@@ -1,4 +1,4 @@
-// Per-phone tutorial state machine. Five steps. Persisted to disk so
+// Per-phone tutorial state machine. Four steps. Persisted to disk so
 // edit + Node --watch restart cycles don't replay step 1.
 //
 // Shape on disk:
@@ -8,14 +8,13 @@
 
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 
-export const TOTAL_STEPS = 5;
+export const TOTAL_STEPS = 4;
 
 const STEP_TEMPLATES = {
-  1: '✅ Connected. Open `http://localhost:${port}/chat`, your dev console. Text-only by design (no media, buttons, or stickers). Reply to continue.',
-  2: 'Now try replying *from* /chat instead of your phone.',
-  3: 'See the ✓✓ blue ticks? I\'m marking your messages as read. Raw webhooks at `http://localhost:${port}/logs`.',
-  4: '🎉 You\'re shipping. When you\'re ready to swap from sandbox to your own number, run these in your terminal: `hookmyapp signup`, then `hookmyapp env <waba-id> --write .env`. Restart the kit and message me from your real number.',
-  5: 'Last step. Tell your AI coding agent (or open the file yourself): change the auto-reply in `src/index.js` (search for `// CUSTOMIZE`). Save. Whatever I say next is *your* code talking, not mine.',
+  1: '✅ Connected. Your kit received this WhatsApp message. Open `http://localhost:${port}/chat` to watch the conversation in your dev console. Reply anything from your phone or from /chat to continue.',
+  2: 'Every webhook Meta sends lands at `http://localhost:${port}/logs` with the full payload. Click a row to expand the JSON. Reply anything to continue.',
+  3: 'When you want to use your own WhatsApp number instead of the sandbox, run `hookmyapp signup` then `hookmyapp env <waba-id> --write .env` in your terminal, restart the kit, and message it from your real number. For now, reply anything to continue.',
+  4: 'Last step. Tell your AI coding agent (or open the file yourself) to change the auto-reply at `// CUSTOMIZE` in `src/index.js`. Save and reply anything. What comes back next is your code, not me.',
 };
 
 export function loadState(path) {

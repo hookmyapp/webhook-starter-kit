@@ -61,42 +61,13 @@ export async function sendMessage(to, text) {
   return res.json();
 }
 
-// Mark an inbound message as read. Drives the blue ✓✓ ticks tutorial
-// step 3 calls out. Same auth / endpoint shape as sendMessage.
-export async function markAsRead(messageId) {
-  const url = `${process.env.WHATSAPP_API_URL}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      status: 'read',
-      message_id: messageId,
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`WhatsApp API error ${res.status}: ${JSON.stringify(err)}`);
-  }
-  return res.json();
-}
-
 // Pure inbound-text handler. Takes the WhatsApp message + a context with
 // injectable side-effects so it's unit-testable without booting Express.
 // Returns { tutorialActive: boolean } so the caller decides whether to
 // also fire the user's customized auto-reply.
 export async function handleInbound(message, ctx) {
-  const { sendMessage, markAsRead, port, chatPush } = ctx;
+  const { sendMessage, port, chatPush } = ctx;
   const from = message.from;
-  // Mark every inbound as read regardless of state.
-  if (message.id) {
-    try { await markAsRead(message.id); } catch (err) {
-      process.stderr.write(`markAsRead failed (non-fatal): ${err.message}\n`);
-    }
-  }
   if (message.type === 'text' && chatPush) {
     // Meta's payload shape is `text: { body: '...' }` — extract the body
     // so /chat renders the string, not [object Object].
@@ -215,17 +186,23 @@ app.post('/webhook', async (req, res) => {
           if (type === 'text') {
             const { tutorialActive } = await handleInbound(message, {
               sendMessage,
-              markAsRead,
               port: boundPort ?? (Number(PORT) || 3000),
               chatPush: chatBuffer ? (e) => chatBuffer.push(e) : null,
             });
             if (!tutorialActive) {
+              // CUSTOMIZE: change this auto-reply text to whatever you want
+              const reply = `✅ Your webhook is connected! We received your message:\n\n"${text}"\n\nYou're all set to start building with HookMyApp.`;
               try {
-                // CUSTOMIZE: change this auto-reply text to whatever you want
-                await sendMessage(
-                  from,
-                  `✅ Your webhook is connected! We received your message:\n\n"${text}"\n\nYou're all set to start building with HookMyApp.`,
-                );
+                await sendMessage(from, reply);
+                if (chatBuffer) {
+                  chatBuffer.push({
+                    direction: 'out',
+                    from: process.env.WHATSAPP_PHONE_NUMBER_ID || null,
+                    to: from,
+                    text: reply,
+                    ts: new Date().toISOString(),
+                  });
+                }
                 console.log(`  Replied to ${from}`);
               } catch (err) {
                 console.error(`  Failed to reply: ${err.message}`);
