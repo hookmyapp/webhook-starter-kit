@@ -1,6 +1,6 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -18,93 +18,61 @@ beforeEach(() => {
 
 test('handleInbound on first text fires step 1, advances state', async () => {
   const sent = [];
-  const reads = [];
   const fakeSendMessage = async (to, text) => sent.push({ to, text });
-  const fakeMarkAsRead = async (id) => reads.push(id);
   const { handleInbound } = await import('../src/index.js');
 
   await handleInbound(
     { from: '15551234567', type: 'text', text: 'hi', id: 'wamid.1' },
     {
       sendMessage: fakeSendMessage,
-      markAsRead: fakeMarkAsRead,
       port: 4001,
       chatPush: () => {},
     },
   );
 
-  assert.equal(reads[0], 'wamid.1');
   assert.equal(sent.length, 1);
   assert.equal(sent[0].to, '15551234567');
   assert.match(sent[0].text, /Connected/);
   assert.match(sent[0].text, /http:\/\/localhost:4001\/chat/);
 });
 
-test('handleInbound on 5th reply sends step 5, then stops sending tutorial', async () => {
+test('handleInbound on 4th reply sends step 4, then stops sending tutorial', async () => {
   const sent = [];
   const fakeSendMessage = async (to, text) => sent.push({ to, text });
-  const fakeMarkAsRead = async () => {};
   const { handleInbound } = await import('../src/index.js');
   const phone = '15559999999';
   const ctx = {
     sendMessage: fakeSendMessage,
-    markAsRead: fakeMarkAsRead,
     port: 4001,
     chatPush: () => {},
   };
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 4; i++) {
     await handleInbound(
       { from: phone, type: 'text', text: `r${i}`, id: `wamid.${i}` },
       ctx,
     );
   }
-  assert.equal(sent.length, 5);
+  assert.equal(sent.length, 4);
   assert.match(sent[0].text, /Connected/);
-  assert.match(sent[4].text, /CUSTOMIZE/);
+  assert.match(sent[3].text, /CUSTOMIZE/);
 
-  // 6th inbound — tutorial done; falls through to custom auto-reply path
-  // (which is the existing sendMessage from index.js's webhook handler).
-  // handleInbound itself returns { tutorialActive: false } so the caller
-  // can choose to fire the custom reply.
+  // 5th inbound — tutorial done; falls through to custom auto-reply path.
   const result = await handleInbound(
-    { from: phone, type: 'text', text: 'r5', id: 'wamid.5' },
+    { from: phone, type: 'text', text: 'r4', id: 'wamid.4' },
     ctx,
   );
   assert.equal(result.tutorialActive, false);
 });
 
-test('handleInbound calls markAsRead even when tutorial is over', async () => {
-  const reads = [];
-  const fakeSendMessage = async () => {};
-  const fakeMarkAsRead = async (id) => reads.push(id);
-  const { handleInbound } = await import('../src/index.js');
-  const phone = '15558888888';
-  const ctx = {
-    sendMessage: fakeSendMessage,
-    markAsRead: fakeMarkAsRead,
-    port: 4001,
-    chatPush: () => {},
-  };
-  for (let i = 0; i < 6; i++) {
-    await handleInbound(
-      { from: phone, type: 'text', text: 't', id: `wamid.${i}` },
-      ctx,
-    );
-  }
-  assert.equal(reads.length, 6);
-});
-
 test('handleInbound extracts text.body from real Meta payload shape', async () => {
   const pushed = [];
   const fakeSendMessage = async () => {};
-  const fakeMarkAsRead = async () => {};
   const { handleInbound } = await import('../src/index.js');
   await handleInbound(
     { from: '15557777777', type: 'text', text: { body: 'hi from meta' }, id: 'wamid.meta' },
     {
       sendMessage: fakeSendMessage,
-      markAsRead: fakeMarkAsRead,
       port: 4001,
       chatPush: (e) => pushed.push(e),
     },

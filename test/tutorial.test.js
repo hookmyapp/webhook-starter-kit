@@ -24,16 +24,15 @@ test('fresh phone — getStep returns 0', () => {
   assert.equal(getStep(map, '15551234567'), 0);
 });
 
-test('advance walks 0 → 1 → 2 → 3 → 4 → 5 then returns null', () => {
+test('advance walks 0 → 1 → 2 → 3 → 4 then returns null', () => {
   const map = new Map();
   const phone = '15551234567';
   assert.equal(advance(map, phone), 1);
   assert.equal(advance(map, phone), 2);
   assert.equal(advance(map, phone), 3);
   assert.equal(advance(map, phone), 4);
-  assert.equal(advance(map, phone), 5);
   assert.equal(advance(map, phone), null);
-  assert.equal(getStep(map, phone), 5);
+  assert.equal(getStep(map, phone), 4);
 });
 
 test('save + load round-trip preserves per-phone steps', () => {
@@ -47,17 +46,17 @@ test('save + load round-trip preserves per-phone steps', () => {
   assert.equal(getStep(loaded, '15552222222'), 1);
 });
 
-test('getStepMessage substitutes ${port} into steps 1 and 3', () => {
+test('getStepMessage substitutes ${port} into the /chat and /logs steps', () => {
   const m1 = getStepMessage(1, 4001);
   assert.match(m1, /http:\/\/localhost:4001\/chat/);
   assert.doesNotMatch(m1, /\$\{port\}/);
-  const m3 = getStepMessage(3, 4001);
-  assert.match(m3, /http:\/\/localhost:4001\/logs/);
-  assert.doesNotMatch(m3, /\$\{port\}/);
+  const m2 = getStepMessage(2, 4001);
+  assert.match(m2, /http:\/\/localhost:4001\/logs/);
+  assert.doesNotMatch(m2, /\$\{port\}/);
 });
 
 test('getStepMessage returns null for completed tour', () => {
-  assert.equal(getStepMessage(6, 3000), null);
+  assert.equal(getStepMessage(5, 3000), null);
   assert.equal(getStepMessage(0, 3000), null);
 });
 
