@@ -253,7 +253,10 @@ if (process.env.NODE_ENV !== 'test') {
   listenWithFallback(app, Number(PORT) || 3000)
     .then((port) => {
       boundPort = port;
-      console.log(`Webhook server listening on port ${port}`);
+      const base = `http://localhost:${port}`;
+      console.log(`Webhook server listening on ${base}`);
+      console.log(`  Chat:  ${base}/chat`);
+      console.log(`  Logs:  ${base}/logs`);
     })
     .catch((err) => {
       console.error(err.message);
