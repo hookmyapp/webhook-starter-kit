@@ -56,6 +56,24 @@ The HookMyApp CLI owns your sandbox session lifecycle: starting the tunnel, issu
 
    You should see the payload logged in the terminal running `npm start`, and receive an auto-reply back on WhatsApp confirming the webhook is wired up.
 
+### Pull credentials for a real channel
+
+After you've connected a WhatsApp number through HookMyApp:
+
+```bash
+hookmyapp channels list                                # find your channel ID
+hookmyapp channels env ch_xxxxxxxx --write .env        # writes WHATSAPP_* + HOOKMYAPP_CHANNEL_ID + VERIFY_TOKEN
+```
+
+The CLI accepts the channel's display phone number or name too:
+
+```bash
+hookmyapp channels env "+972 55-727-7945" --write .env
+hookmyapp channels env "tomer office" --write .env
+```
+
+> Top-level forms (`hookmyapp env`, `hookmyapp token`, `hookmyapp health`, `hookmyapp webhook`) still work as deprecated aliases for one release — they print a stderr warning pointing at the canonical nested form.
+
 ## Environment
 
 The `.env.example` file lists the five keys the server expects, but you should not need to copy them manually. The CLI is the source of truth: run `hookmyapp sandbox env --write` after each new sandbox session and your `.env` stays in sync with the session's current secrets.
