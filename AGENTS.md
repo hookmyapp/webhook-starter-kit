@@ -105,26 +105,26 @@ hookmyapp channels connect
 
 > **HUMAN ACTION REQUIRED:** Meta's embedded-signup popup opens at `app.hookmyapp.com`. The human signs in to Facebook Business, picks (or creates) a WABA, picks a phone number, and grants the HookMyApp app access. If the popup is blocked, the CLI prints a URL to open manually.
 
-### 3. Find the WABA ID
+### 3. Find the channel ID
 
 ```bash
 hookmyapp channels list
 ```
 
-Note the `waba_id` — you will pass it to the next three commands.
+Note the `channel_id` (e.g. `ch_xxxxxxxx`) — you will pass it to the next three commands. The CLI also accepts the channel's display phone number or name as the `<channel>` positional.
 
 ### 4. Pull production env values
 
 ```bash
-hookmyapp env <waba-id>
+hookmyapp channels env <channel>
 ```
 
-`hookmyapp env <waba-id>` emits the three keys needed. Credentials in your .env use the WHATSAPP_ prefix everywhere (kit, CLI, frontend download, docs). The kit code in `src/index.js` does NOT change between sandbox and production. Only these values flip.
+`hookmyapp channels env <channel>` emits the keys needed (`WHATSAPP_*` + `HOOKMYAPP_CHANNEL_ID` + `VERIFY_TOKEN`). Credentials in your .env use the WHATSAPP_ prefix everywhere (kit, CLI, frontend download, docs). The kit code in `src/index.js` does NOT change between sandbox and production. Only these values flip.
 
 ### 5. Configure the production webhook URL
 
 ```bash
-hookmyapp webhook set <waba-id> \
+hookmyapp channels webhook set <channel> \
   --url https://your-public-host.example.com/webhook \
   --verify-token <your-chosen-token> \
   --env production
@@ -137,7 +137,7 @@ Pick a strong random `VERIFY_TOKEN` (32+ chars) and pass it via `--verify-token`
 ### 6. Verify health
 
 ```bash
-hookmyapp health <waba-id>
+hookmyapp channels health <channel>
 ```
 
 Phone numbers should be `VERIFIED`, webhook `verified: true`, quality `GREEN`.
@@ -148,14 +148,14 @@ These operations cannot be automated. Stop and ask the human to do them:
 
 - `hookmyapp login` — opens a browser sign-in tab.
 - `hookmyapp channels connect` — Meta's embedded-signup popup.
-- Confirming the URL before any `hookmyapp webhook set ... --env production` call.
+- Confirming the URL before any `hookmyapp channels webhook set ... --env production` call.
 - Rotating a leaked `WHATSAPP_ACCESS_TOKEN` — happens in the Meta App Dashboard, not via CLI.
 
 ## Safety rules
 
-- **Never** paste output of `hookmyapp env <waba-id>` or `hookmyapp token <waba-id>` into chat, tickets, logs, commit messages, or PR descriptions. Redirect the human to a `.env` file or secret manager they control.
+- **Never** paste output of `hookmyapp channels env <channel>` or `hookmyapp channels token <channel>` into chat, tickets, logs, commit messages, or PR descriptions. Redirect the human to a `.env` file or secret manager they control.
 - **Never** run `hookmyapp workspace use` without confirming the target workspace ID with the human — wrong workspace means mutating the wrong WABA.
-- **Never** run `hookmyapp webhook set ... --env production` without explicit human URL confirmation. A typo silently drops inbound customer messages.
+- **Never** run `hookmyapp channels webhook set ... --env production` without explicit human URL confirmation. A typo silently drops inbound customer messages.
 - **Never** generate sandbox template-message examples — the sandbox proxy rejects templates and only `type: "text"` works in sandbox. Templates are production-only.
 - **Never** hand-edit `.env` to bypass `hookmyapp sandbox env --write`. The CLI is the source of truth; manual values drift the moment the sandbox session rotates.
 
@@ -203,13 +203,13 @@ If you extend the kit and swap `express.json()` for `express.raw({ type: 'applic
 | `Invalid signature — rejecting webhook` 401s in logs | `.env` is stale — sandbox session rotated. Re-run `hookmyapp sandbox env --write .env` and restart `npm start`. |
 | `sandbox send` rejects recipient | Sandbox pins recipient to the session phone; no `--to` flag exists. Move to production for multi-recipient. |
 | `channels connect` popup blocked | Allow popups from `app.hookmyapp.com`, or open the URL the CLI prints manually. |
-| `401 invalid_token` from Meta in production | Re-run `hookmyapp token <waba-id>`; if it still fails, `hookmyapp channels connect` to re-mint. |
+| `401 invalid_token` from Meta in production | Re-run `hookmyapp channels token <channel>`; if it still fails, `hookmyapp channels connect` to re-mint. |
 | Server logs show inbound webhooks but no request bodies | Re-run `hookmyapp sandbox listen --verbose` to stream full request/response bodies in the CLI terminal. |
 | `sandbox listen: tunnel closed` / cloudflared errors | Re-run with `hookmyapp sandbox listen --reinstall-tunnel-binary` to force-redownload the cloudflared binary. Then check outbound 443 to `*.trycloudflare.com` isn't firewalled. |
 
 ## Going further
 
 - `hookmyapp <command> --help` — print full flags for any command.
-- `hookmyapp --help` — full command surface (login, logout, workspace, channels, sandbox, webhook, env, token, health, billing, config).
+- `hookmyapp --help` — full command surface (login, logout, workspace, channels, sandbox, billing, config). Channel-scoped operations live under `hookmyapp channels` (`env`, `token`, `health`, `webhook set`). Top-level `env`/`token`/`health`/`webhook` are deprecated aliases for one release.
 - Global flags worth knowing: `--json` (machine-readable output), `--workspace <name|slug|id>`, `--env local|staging|production`, `--debug`.
 - npm package: <https://www.npmjs.com/package/@gethookmyapp/cli>.
