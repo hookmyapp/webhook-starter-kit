@@ -40,7 +40,7 @@ mountChat(app, chatBuffer, { sendMessage });
 // Send a WhatsApp text message via sandbox proxy or production Meta API.
 // Works identically with both -- just swap the three WHATSAPP_* env vars.
 export async function sendMessage(to, text) {
-  const url = `${process.env.WHATSAPP_API_URL}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+  const url = `${process.env.META_GRAPH_API_URL}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {

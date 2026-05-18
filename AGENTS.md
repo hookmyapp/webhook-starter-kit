@@ -11,7 +11,7 @@ This kit is an **Express webhook receiver wired to `@gethookmyapp/cli`**. The CL
 - **What env is:** the server reads exactly five keys from `.env`. These are also what `hookmyapp sandbox env --write .env` writes:
   - `VERIFY_TOKEN` — per-session HMAC-SHA256 secret. Used both as the verify-challenge response body and as the HMAC key for `X-HookMyApp-Signature-256`.
   - `PORT` — port the Express server listens on (defaults to `3000` if absent).
-  - `WHATSAPP_API_URL` — sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production: `https://graph.facebook.com/v22.0`.
+  - `META_GRAPH_API_URL` — Meta Graph API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production: `https://graph.facebook.com/v24.0` (or whatever Graph version your channel is pinned to). Renamed from `WHATSAPP_API_URL` in v2.0.0 — the name now reflects that the Graph API is Meta-level, not WhatsApp-specific.
   - `WHATSAPP_ACCESS_TOKEN` — sandbox activation code (CLI-issued) or production Meta access token.
   - `WHATSAPP_PHONE_NUMBER_ID` — sandbox session phone or production Meta phone number ID.
 - **Sandbox vs production:** sandbox is a shared HookMyApp WABA with no Meta paperwork; recipient is pinned server-side to the session phone and templates are blocked. Production is the user's own WABA via Meta embedded signup; templates work and any opted-in recipient is reachable. The five env keys above stay the same — only their values change.
@@ -58,7 +58,7 @@ What this does: installs `express` and `dotenv` (declared in `package.json`).
 hookmyapp sandbox env --write .env
 ```
 
-What this does: writes the five sandbox keys (`VERIFY_TOKEN`, `PORT`, `WHATSAPP_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`) into `.env` — the same keys listed in `.env.example`. The CLI is the source of truth; do not hand-edit values it produces.
+What this does: writes the five sandbox keys (`VERIFY_TOKEN`, `PORT`, `META_GRAPH_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`) into `.env` — the same keys listed in `.env.example`. The CLI is the source of truth; do not hand-edit values it produces.
 
 ### 5. Start the server
 
