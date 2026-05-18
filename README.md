@@ -38,7 +38,7 @@ The HookMyApp CLI owns your sandbox session lifecycle: starting the tunnel, issu
    hookmyapp sandbox env --write .env
    ```
 
-   (The CLI writes `VERIFY_TOKEN`, `PORT`, `WHATSAPP_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` into `.env`, exactly the five keys in `.env.example`.)
+   (The CLI writes `VERIFY_TOKEN`, `PORT`, `META_GRAPH_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` into `.env`, exactly the five keys in `.env.example`.)
 
 5. Start the server:
 
@@ -82,7 +82,7 @@ The `.env.example` file lists the five keys the server expects, but you should n
 |----------|-------------|
 | `VERIFY_TOKEN` | Per-session HMAC secret. Used both as the webhook-verification response body and as the HMAC-SHA256 key for verifying incoming `X-HookMyApp-Signature-256` headers. The CLI pulls this from your active sandbox session. |
 | `PORT` | Port the webhook server listens on. Default `3000`. |
-| `WHATSAPP_API_URL` | API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production: `https://graph.facebook.com/v22.0`. |
+| `META_GRAPH_API_URL` | Meta Graph API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production: `https://graph.facebook.com/v24.0` (or whatever Graph version your channel is pinned to). |
 | `WHATSAPP_ACCESS_TOKEN` | Sandbox activation code (CLI-provided) or Meta access token in production. |
 | `WHATSAPP_PHONE_NUMBER_ID` | Phone number ID from your sandbox session or Meta app. |
 
@@ -139,7 +139,7 @@ The echo-back example in `src/index.js` is enabled by default so you can verify 
 
 ## Going to production
 
-When you're ready to move off the sandbox and onto a real WABA, swap the three `WHATSAPP_*` values to your production credentials and point `WHATSAPP_API_URL` at `https://graph.facebook.com/v22.0`. The webhook receiver, signature verification, and `sendMessage` helper all stay the same.
+When you're ready to move off the sandbox and onto a real WABA, swap the three `WHATSAPP_*` values to your production credentials and point `META_GRAPH_API_URL` at `https://graph.facebook.com/v24.0` (or whichever Graph version your channel is pinned to — the dashboard's Copy/Download Credentials buttons emit the current value). The webhook receiver, signature verification, and `sendMessage` helper all stay the same.
 
 ## Logs UI
 
