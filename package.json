@@ -1,7 +1,7 @@
 {
   "name": "hookmyapp-webhook-starter",
   "version": "2.0.0",
-  "description": "Starter kit for receiving WhatsApp webhooks via HookMyApp",
+  "description": "Starter kit for receiving WhatsApp and Instagram webhooks via HookMyApp",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
