@@ -126,8 +126,7 @@ hookmyapp channels env <channel>
 ```bash
 hookmyapp channels webhook set <channel> \
   --url https://your-public-host.example.com/webhook \
-  --verify-token <your-chosen-token> \
-  --env production
+  --verify-token <your-chosen-token>
 ```
 
 Pick a strong random `VERIFY_TOKEN` (32+ chars) and pass it via `--verify-token`. This is what your server will use as the HMAC key for `X-HookMyApp-Signature-256` verification (same shape as sandbox — see Signature verification below). Omitting `--verify-token` leaves the prior token in place, which is desirable for URL-only rotation when you already have one.
@@ -148,14 +147,14 @@ These operations cannot be automated. Stop and ask the human to do them:
 
 - `hookmyapp login` — opens a browser sign-in tab.
 - `hookmyapp channels connect` — Meta's embedded-signup popup.
-- Confirming the URL before any `hookmyapp channels webhook set ... --env production` call.
+- Confirming the URL before any `hookmyapp channels webhook set ...` call.
 - Rotating a leaked `WHATSAPP_ACCESS_TOKEN` — happens in the Meta App Dashboard, not via CLI.
 
 ## Safety rules
 
 - **Never** paste output of `hookmyapp channels env <channel>` or `hookmyapp channels token <channel>` into chat, tickets, logs, commit messages, or PR descriptions. Redirect the human to a `.env` file or secret manager they control.
 - **Never** run `hookmyapp workspace use` without confirming the target workspace ID with the human — wrong workspace means mutating the wrong WABA.
-- **Never** run `hookmyapp channels webhook set ... --env production` without explicit human URL confirmation. A typo silently drops inbound customer messages.
+- **Never** run `hookmyapp channels webhook set ...` without explicit human URL confirmation. A typo silently drops inbound customer messages.
 - **Never** generate sandbox template-message examples — the sandbox proxy rejects templates and only `type: "text"` works in sandbox. Templates are production-only.
 - **Never** hand-edit `.env` to bypass `hookmyapp sandbox env --write`. The CLI is the source of truth; manual values drift the moment the sandbox session rotates.
 
@@ -211,5 +210,5 @@ If you extend the kit and swap `express.json()` for `express.raw({ type: 'applic
 
 - `hookmyapp <command> --help` — print full flags for any command.
 - `hookmyapp --help` — full command surface (login, logout, workspace, channels, sandbox, billing, config). Channel-scoped operations live under `hookmyapp channels` (`env`, `token`, `health`, `webhook set`). Top-level `env`/`token`/`health`/`webhook` are deprecated aliases for one release.
-- Global flags worth knowing: `--json` (machine-readable output), `--workspace <name|slug|id>`, `--env local|staging|production`, `--debug`.
+- Global flags worth knowing: `--json` (machine-readable output), `--workspace <name|slug|id>`, `--debug`.
 - npm package: <https://www.npmjs.com/package/@gethookmyapp/cli>.
