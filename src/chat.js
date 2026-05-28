@@ -8,9 +8,9 @@ export function createChatBuffer({ capPerPhone = 100 } = {}) {
   const subscribers = new Set();
 
   function keyOf(entry) {
-    if (entry.direction === 'in') return entry.from;
-    if (entry.direction === 'out') return entry.to;
-    return entry.from || entry.to || 'unknown';
+    const participant = entry.direction === 'out' ? entry.to : entry.from;
+    const provider = entry.provider || 'whatsapp';
+    return `${provider}:${participant ?? 'unknown'}`;
   }
 
   function push(entry) {
@@ -41,6 +41,10 @@ export function createChatBuffer({ capPerPhone = 100 } = {}) {
     return Array.from(byPhone.keys());
   }
 
+  function conversationKeys() {
+    return Array.from(byPhone.keys());
+  }
+
   function subscribe(fn) {
     subscribers.add(fn);
     return function unsubscribe() { subscribers.delete(fn); };
@@ -51,6 +55,7 @@ export function createChatBuffer({ capPerPhone = 100 } = {}) {
     entries,
     entriesByPhone,
     phones,
+    conversationKeys,
     subscribe,
     get size() {
       let n = 0;
@@ -384,7 +389,7 @@ const HTML_PAGE =
   '</html>\n';
 
 export function mountChat(app, buffer, deps = {}) {
-  const sendMessage = deps.sendMessage;
+  const senders = deps.senders ?? {};
 
   app.get('/chat', (req, res) => {
     res.set('Content-Type', 'text/html; charset=utf-8');
@@ -425,25 +430,15 @@ export function mountChat(app, buffer, deps = {}) {
 
   app.post('/chat/send', async (req, res) => {
     const body = req.body ?? {};
+    const provider = typeof body.provider === 'string' ? body.provider : 'whatsapp';
     const to = typeof body.to === 'string' ? body.to : null;
     const text = typeof body.text === 'string' ? body.text : null;
-    if (!to || !text) {
-      res.status(400).json({ status: 'error', error: 'to and text are required' });
-      return;
-    }
-    if (!sendMessage) {
-      res.status(500).json({ status: 'error', error: 'sendMessage not wired' });
-      return;
-    }
+    if (!to || !text) return res.status(400).json({ status: 'error', error: 'to and text are required' });
+    const send = senders[provider];
+    if (!send) return res.status(500).json({ status: 'error', error: `no sender for provider '${provider}'` });
     try {
-      await sendMessage(to, text);
-      buffer.push({
-        direction: 'out',
-        from: process.env.WHATSAPP_PHONE_NUMBER_ID || null,
-        to,
-        text,
-        ts: new Date().toISOString(),
-      });
+      await send(to, text);
+      buffer.push({ provider, direction: 'out', from: null, to, text, ts: new Date().toISOString() });
       res.json({ status: 'ok' });
     } catch (err) {
       res.status(502).json({ status: 'error', error: err.message });
