@@ -1,6 +1,6 @@
 # HookMyApp Webhook Starter Kit
 
-A minimal Express.js starter for receiving WhatsApp webhooks via [HookMyApp](https://hookmyapp.com). This kit ships a verified-signature receiver, an auto-reply example, and a `sendMessage` helper that works identically against the free sandbox and the production Meta API.
+A minimal Express.js starter for receiving WhatsApp and Instagram webhooks via [HookMyApp](https://hookmyapp.com). This kit ships verified-signature receivers for both channels, an auto-reply example, and per-channel `send` helpers that work identically against the free sandbox and the production Meta API.
 
 ## For AI Agents
 
@@ -38,7 +38,7 @@ The HookMyApp CLI owns your sandbox session lifecycle: starting the tunnel, issu
    hookmyapp sandbox env --write .env
    ```
 
-   (The CLI writes `VERIFY_TOKEN`, `PORT`, `META_GRAPH_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` into `.env`, exactly the five keys in `.env.example`.)
+   (For a WhatsApp session the CLI writes `VERIFY_TOKEN`, `PORT`, `WHATSAPP_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`. For an Instagram session it writes the `INSTAGRAM_*` keys instead. See `.env.example` for both blocks.)
 
 5. Start the server:
 
@@ -72,25 +72,28 @@ hookmyapp channels env "+972 55-727-7945" --write .env
 hookmyapp channels env "tomer office" --write .env
 ```
 
-> Top-level forms (`hookmyapp env`, `hookmyapp token`, `hookmyapp health`, `hookmyapp webhook`) still work as deprecated aliases for one release — they print a stderr warning pointing at the canonical nested form.
+> Top-level forms (`hookmyapp env`, `hookmyapp token`, `hookmyapp health`, `hookmyapp webhook`) still work as deprecated aliases for one release: they print a stderr warning pointing at the canonical nested form.
 
 ## Environment
 
-The `.env.example` file lists the five keys the server expects, but you should not need to copy them manually. The CLI is the source of truth: run `hookmyapp sandbox env --write` after each new sandbox session and your `.env` stays in sync with the session's current secrets.
+The `.env.example` file lists the keys the server expects, but you should not need to copy them manually. The CLI is the source of truth: run `hookmyapp sandbox env --write` after each new sandbox session and your `.env` stays in sync with the session's current secrets.
 
 | Variable | Description |
 |----------|-------------|
 | `VERIFY_TOKEN` | Per-session HMAC secret. Used both as the webhook-verification response body and as the HMAC-SHA256 key for verifying incoming `X-HookMyApp-Signature-256` headers. The CLI pulls this from your active sandbox session. |
 | `PORT` | Port the webhook server listens on. Default `3000`. |
-| `META_GRAPH_API_URL` | Meta Graph API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production: `https://graph.facebook.com/v24.0` (or whatever Graph version your channel is pinned to). |
+| `WHATSAPP_API_URL` | WhatsApp Graph API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production `channels env` writes this as `META_GRAPH_API_URL`; the kit reads either. |
 | `WHATSAPP_ACCESS_TOKEN` | Sandbox activation code (CLI-provided) or Meta access token in production. |
 | `WHATSAPP_PHONE_NUMBER_ID` | Phone number ID from your sandbox session or Meta app. |
+| `INSTAGRAM_API_URL` | Instagram Graph API base URL for the Instagram channel. |
+| `INSTAGRAM_ACCESS_TOKEN` | Sandbox activation code (CLI-provided) or Meta access token for Instagram. |
+| `INSTAGRAM_ACCOUNT_ID` | Instagram account ID the kit sends from. |
 
 ## How it works
 
 ```
 WhatsApp user           Meta            HookMyApp           Your server
-sends message  ──────>  Cloud API  ──>  Forwarder  ──────>  POST /webhook
+sends message  ──────>  Cloud API  ──>  Forwarder  ──────>  POST /webhook/whatsapp
                         webhook         signs with          verifies
                                         HMAC-SHA256         signature
 ```
@@ -100,11 +103,13 @@ sends message  ──────>  Cloud API  ──>  Forwarder  ────�
 3. HookMyApp signs the payload with your session `VERIFY_TOKEN` (HMAC-SHA256) and forwards it through a Cloudflare tunnel to your local server.
 4. Your server verifies the signature and processes the message.
 
+Instagram works the same way through `POST /webhook/instagram`. The kit serves both routes at once.
+
 The payload arrives in the **original Meta format**. HookMyApp does not transform the body. Use Meta's official WhatsApp Cloud API docs for the full payload schema.
 
 ### Verification challenge
 
-When you first configure your webhook URL with HookMyApp (the CLI does this for you during `sandbox listen`), HookMyApp sends a `GET /webhook` to your endpoint. Your server must respond with `VERIFY_TOKEN` as the entire response body. This kit handles that automatically in `src/index.js`.
+When you first configure your webhook URL with HookMyApp (the CLI does this for you during `sandbox listen`), HookMyApp sends a `GET /webhook/whatsapp` (or `/webhook/instagram`) to your endpoint. Your server must respond with `VERIFY_TOKEN` as the entire response body. This kit handles that automatically in `src/index.js`.
 
 ### Signature verification
 
@@ -127,19 +132,21 @@ function verifySignature(body, signature, verifyToken) {
 
 ## Sending messages
 
-The `sendMessage` helper in `src/index.js` works identically against the sandbox and production Meta API. Only the three `WHATSAPP_*` env values change.
+Each provider module exports a `send(to, text)` helper that works identically against the sandbox and production Meta API. Only the channel's env values change.
 
 ```js
-import { sendMessage } from './src/index.js';
+import { send as sendWhatsApp } from './src/providers/whatsapp.js';
+import { send as sendInstagram } from './src/providers/instagram.js';
 
-await sendMessage('1234567890', 'Hello from my app!');
+await sendWhatsApp('1234567890', 'Hello from my app!');
+await sendInstagram('INSTAGRAM_SCOPED_ID', 'Hello from my app!');
 ```
 
-The echo-back example in `src/index.js` is enabled by default so you can verify the round-trip on your first inbound message. Delete or customise it once you start building your own logic.
+The auto-reply in the webhook routes is enabled by default so you can verify the round-trip on your first inbound message. Customize or remove it in `src/index.js`.
 
 ## Going to production
 
-When you're ready to move off the sandbox and onto a real WABA, swap the three `WHATSAPP_*` values to your production credentials and point `META_GRAPH_API_URL` at `https://graph.facebook.com/v24.0` (or whichever Graph version your channel is pinned to — the dashboard's Copy/Download Credentials buttons emit the current value). The webhook receiver, signature verification, and `sendMessage` helper all stay the same.
+When you're ready to move off the sandbox and onto a real WABA, swap the `WHATSAPP_*` values to your production credentials. The dashboard's Copy/Download Credentials buttons emit the current Graph version URL, so use that value for `WHATSAPP_API_URL`. The webhook receivers, signature verification, and per-channel `send` helpers all stay the same.
 
 ## WhatsApp and Instagram
 
@@ -166,9 +173,9 @@ While the server is running, visit `http://localhost:3000/logs` (or whatever `PO
 
 ## /chat (local conversation viewer)
 
-While the server is running, visit `http://localhost:3000/chat` (or whatever `PORT` you configured, noting port-fallback if 3000 is taken) in your browser. You will see a per-phone threaded view of inbound and outbound messages. The view is in-memory only and clears on restart.
+While the server is running, visit `http://localhost:3000/chat` (or whatever `PORT` you configured, noting port-fallback if 3000 is taken) in your browser. You will see a per-conversation threaded view (one thread per channel and participant) of inbound and outbound messages. The view is in-memory only and clears on restart.
 
-Type into the bottom input and press Enter to send a message. This posts to `POST /chat/send`, which calls `sendMessage` with your credentials. The view mirrors the styling and server-sent events (SSE) retry behavior of the `/logs` surface.
+Type into the bottom input and press Enter to send a message. This posts to `POST /chat/send`, which dispatches to the selected channel's `send` helper. The view mirrors the styling and server-sent events (SSE) retry behavior of the `/logs` surface.
 
 ## Tutorial trail
 
