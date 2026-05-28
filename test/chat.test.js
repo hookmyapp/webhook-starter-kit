@@ -6,7 +6,7 @@ import { createChatBuffer, mountChat } from '../src/chat.js';
 async function bootApp(buffer, sendMessage) {
   const app = express();
   app.use(express.json());
-  mountChat(app, buffer, { sendMessage });
+  mountChat(app, buffer, { senders: { whatsapp: sendMessage } });
   return new Promise((resolveBoot) => {
     const srv = app.listen(0, () => resolveBoot({ srv, port: srv.address().port }));
   });
@@ -16,7 +16,7 @@ test('push records an entry, size grows', () => {
   const buf = createChatBuffer({ capPerPhone: 100 });
   buf.push({ direction: 'in', from: '15551111', to: 'PHN', text: 'hi', ts: 'T1' });
   assert.equal(buf.size, 1);
-  assert.deepEqual(buf.phones(), ['15551111']);
+  assert.deepEqual(buf.phones(), ['whatsapp:15551111']);
 });
 
 test('per-phone cap evicts oldest of that phone, leaves other phones alone', () => {
@@ -27,10 +27,10 @@ test('per-phone cap evicts oldest of that phone, leaves other phones alone', () 
   for (let i = 0; i < 2; i++) {
     buf.push({ direction: 'in', from: 'B', to: 'PHN', text: `b${i}`, ts: `T${i}` });
   }
-  const a = buf.entriesByPhone('A');
+  const a = buf.entriesByPhone('whatsapp:A');
   assert.equal(a.length, 3);
   assert.deepEqual(a.map((e) => e.text), ['a2', 'a3', 'a4']);
-  const b = buf.entriesByPhone('B');
+  const b = buf.entriesByPhone('whatsapp:B');
   assert.equal(b.length, 2);
 });
 
@@ -66,7 +66,6 @@ test('POST /chat/send calls sendMessage and pushes outbound entry', async () => 
   const sent = [];
   const fakeSend = async (to, text) => { sent.push({ to, text }); };
   const { srv, port } = await bootApp(buf, fakeSend);
-  process.env.WHATSAPP_PHONE_NUMBER_ID = 'PHN_TEST';
   try {
     const res = await fetch(`http://localhost:${port}/chat/send`, {
       method: 'POST',
@@ -77,11 +76,11 @@ test('POST /chat/send calls sendMessage and pushes outbound entry', async () => 
     assert.equal(res.status, 200);
     assert.equal(body.status, 'ok');
     assert.deepEqual(sent, [{ to: '15551234567', text: 'hello' }]);
-    const out = buf.entriesByPhone('15551234567');
+    const out = buf.entriesByPhone('whatsapp:15551234567');
     assert.equal(out.length, 1);
     assert.equal(out[0].direction, 'out');
     assert.equal(out[0].text, 'hello');
-    assert.equal(out[0].from, 'PHN_TEST');
+    assert.equal(out[0].from, null);
   } finally {
     srv.close();
   }
@@ -115,4 +114,30 @@ test('POST /chat/send returns 502 when sendMessage throws', async () => {
   } finally {
     srv.close();
   }
+});
+
+test('buffer keys conversations by (provider, participantId) so WA and IG never collide', () => {
+  const buf = createChatBuffer({ capPerPhone: 10 });
+  buf.push({ provider: 'whatsapp', direction: 'in', from: '123', to: null, text: 'wa', ts: '2026-05-28T00:00:00Z' });
+  buf.push({ provider: 'instagram', direction: 'in', from: '123', to: null, text: 'ig', ts: '2026-05-28T00:00:01Z' });
+  assert.deepEqual(buf.conversationKeys().sort(), ['instagram:123', 'whatsapp:123']);
+});
+
+test('/chat/send dispatches to the provider named in the request body', async () => {
+  const calls = [];
+  const senders = {
+    whatsapp: async (to, text) => { calls.push(['whatsapp', to, text]); },
+    instagram: async (to, text) => { calls.push(['instagram', to, text]); },
+  };
+  const buf = createChatBuffer({ capPerPhone: 10 });
+  const app = express(); app.use(express.json());
+  mountChat(app, buf, { senders });
+  const server = app.listen(0);
+  const port = server.address().port;
+  await fetch(`http://localhost:${port}/chat/send`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provider: 'instagram', to: 'IGSID9', text: 'reply' }),
+  });
+  server.close();
+  assert.deepEqual(calls, [['instagram', 'IGSID9', 'reply']]);
 });
