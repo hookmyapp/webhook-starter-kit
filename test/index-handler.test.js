@@ -20,13 +20,19 @@ test('handleInbound on first text fires step 1, advances state', async () => {
   const sent = [];
   const fakeSendMessage = async (to, text) => sent.push({ to, text });
   const { handleInbound } = await import('../src/index.js');
+  const { loadState } = await import('../src/tutorial.js');
+  const statePath = process.env.TUTORIAL_STATE_PATH;
+  const tutorialState = loadState(statePath);
 
   await handleInbound(
-    { from: '15551234567', type: 'text', text: 'hi', id: 'wamid.1' },
+    { from: '15551234567', text: 'hi', provider: 'whatsapp' },
     {
-      sendMessage: fakeSendMessage,
+      send: fakeSendMessage,
       port: 4001,
       chatPush: () => {},
+      selfId: 'PHN_TEST',
+      tutorialState,
+      tutorialStatePath: statePath,
     },
   );
 
@@ -40,16 +46,24 @@ test('handleInbound on 4th reply sends step 4, then stops sending tutorial', asy
   const sent = [];
   const fakeSendMessage = async (to, text) => sent.push({ to, text });
   const { handleInbound } = await import('../src/index.js');
+  const { loadState } = await import('../src/tutorial.js');
+  const statePath = process.env.TUTORIAL_STATE_PATH;
+  // Load tutorialState ONCE and reuse the same object + ctx across the loop so
+  // the step advances.
+  const tutorialState = loadState(statePath);
   const phone = '15559999999';
   const ctx = {
-    sendMessage: fakeSendMessage,
+    send: fakeSendMessage,
     port: 4001,
     chatPush: () => {},
+    selfId: 'PHN_TEST',
+    tutorialState,
+    tutorialStatePath: statePath,
   };
 
   for (let i = 0; i < 4; i++) {
     await handleInbound(
-      { from: phone, type: 'text', text: `r${i}`, id: `wamid.${i}` },
+      { from: phone, text: `r${i}`, provider: 'whatsapp' },
       ctx,
     );
   }
@@ -59,7 +73,7 @@ test('handleInbound on 4th reply sends step 4, then stops sending tutorial', asy
 
   // 5th inbound — tutorial done; falls through to custom auto-reply path.
   const result = await handleInbound(
-    { from: phone, type: 'text', text: 'r4', id: 'wamid.4' },
+    { from: phone, text: 'r4', provider: 'whatsapp' },
     ctx,
   );
   assert.equal(result.tutorialActive, false);
@@ -69,17 +83,24 @@ test('handleInbound extracts text.body from real Meta payload shape', async () =
   const pushed = [];
   const fakeSendMessage = async () => {};
   const { handleInbound } = await import('../src/index.js');
+  const { loadState } = await import('../src/tutorial.js');
+  const statePath = process.env.TUTORIAL_STATE_PATH;
+  const tutorialState = loadState(statePath);
   await handleInbound(
-    { from: '15557777777', type: 'text', text: { body: 'hi from meta' }, id: 'wamid.meta' },
+    { from: '15557777777', text: 'hi from meta', provider: 'whatsapp' },
     {
-      sendMessage: fakeSendMessage,
+      send: fakeSendMessage,
       port: 4001,
       chatPush: (e) => pushed.push(e),
+      selfId: 'PHN_TEST',
+      tutorialState,
+      tutorialStatePath: statePath,
     },
   );
   // Two pushes: inbound (the message) + outbound (tutorial step 1 reply).
   const inbound = pushed.find((p) => p.direction === 'in');
   assert.ok(inbound, 'expected an inbound push');
   assert.equal(inbound.text, 'hi from meta');
+  assert.equal(inbound.provider, 'whatsapp');
   assert.notEqual(inbound.text, '[object Object]');
 });
