@@ -13,7 +13,7 @@ export const TOTAL_STEPS = 4;
 const STEP_TEMPLATES = {
   1: '✅ Connected. Your kit received this WhatsApp message. Open `http://localhost:${port}/chat` to watch the conversation in your dev console. Reply anything from your phone or from /chat to continue.',
   2: 'Every webhook Meta sends lands at `http://localhost:${port}/logs` with the full payload. Click a row to expand the JSON. Reply anything to continue.',
-  3: 'When you want to use your own WhatsApp number instead of the sandbox, run `hookmyapp signup` then `hookmyapp env <waba-id> --write .env` in your terminal, restart the kit, and message it from your real number. For now, reply anything to continue.',
+  3: 'When you want to use your own WhatsApp number instead of the sandbox, run `hookmyapp channels connect whatsapp` then `hookmyapp channels env <channel> --write .env` in your terminal, restart the kit, and message it from your real number. For now, reply anything to continue.',
   4: 'Last step. Tell your AI coding agent (or open the file yourself) to change the auto-reply at `// CUSTOMIZE` in `src/index.js`. Save and reply anything. What comes back next is your code, not me.',
 };
 

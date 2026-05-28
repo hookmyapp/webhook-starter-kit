@@ -141,6 +141,25 @@ The echo-back example in `src/index.js` is enabled by default so you can verify 
 
 When you're ready to move off the sandbox and onto a real WABA, swap the three `WHATSAPP_*` values to your production credentials and point `META_GRAPH_API_URL` at `https://graph.facebook.com/v24.0` (or whichever Graph version your channel is pinned to — the dashboard's Copy/Download Credentials buttons emit the current value). The webhook receiver, signature verification, and `sendMessage` helper all stay the same.
 
+## WhatsApp and Instagram
+
+The kit serves two routes, one per channel:
+
+- `POST /webhook/whatsapp`
+- `POST /webhook/instagram`
+
+Point each channel at its route. With the CLI tunnel:
+
+    hookmyapp sandbox listen --port 3000 --path /webhook/whatsapp
+    hookmyapp sandbox listen --port 3000 --path /webhook/instagram
+
+Or with your own URL:
+
+    hookmyapp channels webhook set <wa-channel> --url https://YOUR_HOST/webhook/whatsapp
+    hookmyapp channels webhook set <ig-channel> --url https://YOUR_HOST/webhook/instagram
+
+Signature verification uses `VERIFY_TOKEN`. In production set the same verify token on both channels so both routes verify. To exercise both channels at once against the sandbox, leave `VERIFY_TOKEN` blank so verification is skipped (local dev only): two sandbox sessions have two different secrets and one token cannot verify both.
+
 ## Logs UI
 
 While the server is running, visit `http://localhost:3000/logs` (or whatever `PORT` you configured) in your browser to see incoming webhooks live. Toggle between Compact (one row per webhook) and Verbose (full headers and payload) with the header toggle or by pressing `v`. Press `c` to clear the on-screen log. Buffer is in-memory only and capped at the last 100 webhooks.
@@ -170,7 +189,7 @@ To redo the tour: delete `.tutorial-state.json` and send a message from a new ph
 ## Next steps
 
 - **Add your business logic**: edit `src/index.js` to process incoming messages, send replies, or trigger workflows.
-- **Deploy**: host this server on any platform (Railway, Render, Fly.io, AWS, etc.). Update your webhook URL via `hookmyapp webhook set` once deployed.
+- **Deploy**: host this server on any platform (Railway, Render, Fly.io, AWS, etc.). Update your webhook URL via `hookmyapp channels webhook set <channel> --url https://YOUR_HOST/webhook/whatsapp` once deployed.
 - **Read the docs**: visit [hookmyapp.com](https://hookmyapp.com) for full documentation.
 
 ## Links
