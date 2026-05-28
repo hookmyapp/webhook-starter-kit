@@ -76,3 +76,15 @@ test('POST accepts a correct signature when verifyToken is set', async () => {
   assert.equal(res.status, 200);
   assert.ok(calls.length >= 1);
 });
+
+test('POST is 401 (not 500) on a non-JSON body when verifyToken is set', async () => {
+  const app = createApp({ verifyToken: 'secret', senders: fakeSenders([]), tutorialStatePath: tmpState() });
+  const { s, base } = listen(app);
+  const res = await fetch(`${base}/webhook/whatsapp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain', 'X-HookMyApp-Signature-256': 'sha256=abc' },
+    body: 'not json',
+  });
+  s.close();
+  assert.equal(res.status, 401);
+});
