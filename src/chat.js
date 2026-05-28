@@ -435,7 +435,7 @@ export function mountChat(app, buffer, deps = {}) {
     const text = typeof body.text === 'string' ? body.text : null;
     if (!to || !text) return res.status(400).json({ status: 'error', error: 'to and text are required' });
     const send = senders[provider];
-    if (!send) return res.status(500).json({ status: 'error', error: `no sender for provider '${provider}'` });
+    if (!send) return res.status(400).json({ status: 'error', error: `unsupported provider '${provider}'` });
     try {
       await send(to, text);
       buffer.push({ provider, direction: 'out', from: null, to, text, ts: new Date().toISOString() });

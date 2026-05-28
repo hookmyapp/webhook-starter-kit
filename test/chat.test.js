@@ -140,4 +140,5 @@ test('/chat/send dispatches to the provider named in the request body', async ()
   });
   server.close();
   assert.deepEqual(calls, [['instagram', 'IGSID9', 'reply']]);
+  assert.equal(buf.entriesByPhone('instagram:IGSID9').length, 1);
 });
