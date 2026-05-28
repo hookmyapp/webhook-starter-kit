@@ -59,6 +59,7 @@ export function createApp(opts = {}) {
   function verifyOk(req) {
     const signature = req.get('X-HookMyApp-Signature-256');
     if (!verifyToken || !signature) return true; // skip when unset (spec D2 + verified auth model)
+    if (req.body === undefined || req.body === null) return false; // cannot verify a missing body when a token is required
     const expected = 'sha256=' + createHmac('sha256', verifyToken).update(JSON.stringify(req.body)).digest('hex');
     return signature === expected;
   }
