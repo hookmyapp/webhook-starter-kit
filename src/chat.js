@@ -187,7 +187,7 @@ const HTML_PAGE =
   '  <aside class="sidebar">\n' +
   '    <div class="sidebar-head">Conversations</div>\n' +
   '    <div id="phone-list"></div>\n' +
-  '    <div class="empty" id="sidebar-empty">Waiting for messages.<div class="hint">Send a WhatsApp text to your sandbox number to see it appear here.</div></div>\n' +
+  '    <div class="empty" id="sidebar-empty">Waiting for messages.<div class="hint">Send a WhatsApp or Instagram message to your sandbox to see it here.</div></div>\n' +
   '  </aside>\n' +
   '  <main class="panel">\n' +
   '    <div class="thread-head" id="thread-head" hidden><div><div class="who" id="thread-who"></div><div class="meta" id="thread-meta"></div></div></div>\n' +
@@ -229,6 +229,10 @@ const HTML_PAGE =
   '  }\n' +
   '\n' +
   '  /* Pretty-print a phone in E.164 (digits only) as +<cc> <area>-<rest>. */\n' +
+  '  function fmtParticipant(provider, id) {\n' +
+  '    if (provider === "instagram") return "@" + id;\n' +
+  '    return fmtPhone(id);\n' +
+  '  }\n' +
   '  function fmtPhone(p) {\n' +
   '    if (!p) return "";\n' +
   '    var raw = p.charAt(0) === "+" ? p.slice(1) : p;\n' +
@@ -269,7 +273,8 @@ const HTML_PAGE =
   '      var row = document.createElement("div");\n' +
   '      row.className = "phone-row" + (p === selected ? " active" : "");\n' +
   '      var top = document.createElement("div"); top.className = "top";\n' +
-  '      var num = document.createElement("div"); num.className = "num"; num.textContent = fmtPhone(p);\n' +
+  '      var _ki = p.indexOf(":"); var _kprov = p.slice(0, _ki); var _kid = p.slice(_ki + 1);\n' +
+  '      var num = document.createElement("div"); num.className = "num"; num.textContent = fmtParticipant(_kprov, _kid);\n' +
   '      var when = document.createElement("div"); when.className = "when"; when.textContent = last ? fmtRel(last.ts) : "";\n' +
   '      top.appendChild(num); top.appendChild(when);\n' +
   '      row.appendChild(top);\n' +
@@ -310,7 +315,8 @@ const HTML_PAGE =
   '      return;\n' +
   '    }\n' +
   '    threadHead.hidden = false;\n' +
-  '    threadWho.textContent = fmtPhone(selected);\n' +
+  '    var _si = selected.indexOf(":"); var _sprov = selected.slice(0, _si); var _sid = selected.slice(_si + 1);\n' +
+  '    threadWho.textContent = fmtParticipant(_sprov, _sid);\n' +
   '    var entries = byPhone[selected] || [];\n' +
   '    threadMeta.textContent = entries.length + " message" + (entries.length === 1 ? "" : "s");\n' +
   '    var prevDir = null;\n' +
@@ -336,10 +342,11 @@ const HTML_PAGE =
   '  }\n' +
   '\n' +
   '  function recordEntry(entry) {\n' +
-  '    var phone = entry.direction === "out" ? entry.to : entry.from;\n' +
-  '    if (!phone) return;\n' +
-  '    if (!byPhone[phone]) { byPhone[phone] = []; phones.push(phone); }\n' +
-  '    byPhone[phone].push(entry);\n' +
+  '    var participant = entry.direction === "out" ? entry.to : entry.from;\n' +
+  '    if (!participant) return;\n' +
+  '    var key = (entry.provider || "whatsapp") + ":" + participant;\n' +
+  '    if (!byPhone[key]) { byPhone[key] = []; phones.push(key); }\n' +
+  '    byPhone[key].push(entry);\n' +
   '  }\n' +
   '\n' +
   '  setConn("connecting");\n' +
@@ -362,8 +369,9 @@ const HTML_PAGE =
   '      var entry = JSON.parse(ev.data);\n' +
   '      recordEntry(entry);\n' +
   '      renderSidebar();\n' +
-  '      var phone = entry.direction === "out" ? entry.to : entry.from;\n' +
-  '      if (phone === selected) {\n' +
+  '      var _ep = entry.direction === "out" ? entry.to : entry.from;\n' +
+  '      var _ek = _ep ? (entry.provider || "whatsapp") + ":" + _ep : null;\n' +
+  '      if (_ek === selected) {\n' +
   '        var prev = (byPhone[selected] || []).slice(-2)[0];\n' +
   '        appendMsg(entry, prev && prev.direction === entry.direction);\n' +
   '        threadMeta.textContent = (byPhone[selected] || []).length + " messages";\n' +
@@ -378,7 +386,8 @@ const HTML_PAGE =
   '    var text = input.value.trim();\n' +
   '    if (!text) return;\n' +
   '    btn.disabled = true; btn.classList.add("pending");\n' +
-  '    fetch("/chat/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: selected, text: text }) })\n' +
+  '    var _fsi = selected.indexOf(":"); var _fsProvider = selected.slice(0, _fsi); var _fsTo = selected.slice(_fsi + 1);\n' +
+  '    fetch("/chat/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider: _fsProvider, to: _fsTo, text: text }) })\n' +
   '      .then(function (r) { return r.json().catch(function () { return {}; }); })\n' +
   '      .catch(function (err) { console.error("send failed", err); })\n' +
   '      .finally(function () { input.value = ""; btn.classList.remove("pending"); btn.disabled = false; input.focus(); });\n' +
