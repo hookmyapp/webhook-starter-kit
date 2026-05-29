@@ -9,6 +9,25 @@ import path from 'node:path';
 process.env.NODE_ENV = 'test';
 const { createApp } = await import('../src/index.js');
 
+// Keep route tests fully offline. The inbound IG path calls
+// provider.getUsername(), which fetches `<base>/<igUserId>?fields=username`.
+// Intercept ONLY that lookup (URL carries `fields=username`) and return a
+// deterministic username; delegate every other request (the tests' own
+// POSTs/GETs to the local server) to the real fetch so the server still works.
+const realFetch = globalThis.fetch;
+globalThis.fetch = (input, init) => {
+  const url = typeof input === 'string' ? input : (input && input.url) || '';
+  if (url.includes('fields=username')) {
+    return Promise.resolve(
+      new Response(JSON.stringify({ username: 'ig_tester' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+  }
+  return realFetch(input, init);
+};
+
 const tmpState = () => path.join(os.tmpdir(), `kit-routes-${Math.random().toString(36).slice(2)}.json`);
 const fakeSenders = (calls) => ({
   whatsapp: async (to, text) => { calls.push(['whatsapp', to, text]); },
