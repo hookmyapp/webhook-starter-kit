@@ -16,15 +16,23 @@ The HookMyApp CLI owns your sandbox session lifecycle: starting the tunnel, issu
    npm install -g @gethookmyapp/cli
    ```
 
-2. Log in and start a sandbox session (wizard auto-picks sandbox):
+2. Log in:
 
    ```
    hookmyapp login
    ```
 
-   The wizard picks a workspace, prompts for a phone, and auto-chains into `hookmyapp sandbox listen`. Leave that terminal running. It forwards live webhooks through a Cloudflare tunnel to your local server.
+   This authenticates you and selects your workspace. It does not start a sandbox session on its own.
 
-3. Clone this repo and install:
+3. Bind a sandbox session:
+
+   ```
+   hookmyapp sandbox start
+   ```
+
+   Pick WhatsApp (or Instagram), then send the printed code to the sandbox number from the phone (or DM the sandbox account) you want to bind. Scan the QR or open the link. Once bound, the session is active and its secrets become available to the next step.
+
+4. Clone this repo and install:
 
    ```
    git clone https://github.com/hookmyapp/webhook-starter-kit.git
@@ -32,7 +40,7 @@ The HookMyApp CLI owns your sandbox session lifecycle: starting the tunnel, issu
    npm install
    ```
 
-4. Pull your env values from the CLI:
+5. Pull your env values from the CLI:
 
    ```
    hookmyapp sandbox env --write .env
@@ -40,13 +48,21 @@ The HookMyApp CLI owns your sandbox session lifecycle: starting the tunnel, issu
 
    (For a WhatsApp session the CLI writes `VERIFY_TOKEN`, `PORT`, `WHATSAPP_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`. For an Instagram session it writes the `INSTAGRAM_*` keys instead. See `.env.example` for both blocks.)
 
-5. Start the server:
+6. Start the server:
 
    ```
    npm start
    ```
 
-6. Test a message (optional):
+7. Open the tunnel in a second terminal:
+
+   ```
+   hookmyapp sandbox listen --port 3000 --path /webhook/whatsapp
+   ```
+
+   (Use `--path /webhook/instagram` for an Instagram session. The kit serves one route per channel, so the tunnel must target the matching path.) Leave this running. It forwards live webhooks through a Cloudflare tunnel to your local server.
+
+8. Test a message (optional):
 
    ```
    hookmyapp sandbox send --message "hello"
@@ -85,9 +101,9 @@ The `.env.example` file lists the keys the server expects, but you should not ne
 | `WHATSAPP_API_URL` | WhatsApp Graph API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production `channels env` writes this as `META_GRAPH_API_URL`; the kit reads either. |
 | `WHATSAPP_ACCESS_TOKEN` | Sandbox activation code (CLI-provided) or Meta access token in production. |
 | `WHATSAPP_PHONE_NUMBER_ID` | Phone number ID from your sandbox session or Meta app. |
-| `INSTAGRAM_API_URL` | Instagram Graph API base URL for the Instagram channel. |
+| `INSTAGRAM_API_URL` | Instagram Graph API base URL. Sandbox `sandbox env` writes this. A real Instagram channel's `channels env` writes it as `INSTAGRAM_GRAPH_API_URL`; the kit reads either. |
 | `INSTAGRAM_ACCESS_TOKEN` | Sandbox activation code (CLI-provided) or Meta access token for Instagram. |
-| `INSTAGRAM_ACCOUNT_ID` | Instagram account ID the kit sends from. |
+| `INSTAGRAM_ACCOUNT_ID` | Instagram account ID the kit sends from. A real Instagram channel's `channels env` writes this as `INSTAGRAM_USER_ID`; the kit reads either. |
 
 ## How it works
 
@@ -109,7 +125,7 @@ The payload arrives in the **original Meta format**. HookMyApp does not transfor
 
 ### Verification challenge
 
-When you first configure your webhook URL with HookMyApp (the CLI does this for you during `sandbox listen`), HookMyApp sends a `GET /webhook/whatsapp` (or `/webhook/instagram`) to your endpoint. Your server must respond with `VERIFY_TOKEN` as the entire response body. This kit handles that automatically in `src/index.js`.
+When you register your own public webhook URL with `hookmyapp channels webhook set <channel> --url ...`, HookMyApp sends a one-time `GET /webhook/whatsapp` (or `/webhook/instagram`) to that URL. Your server must respond with `VERIFY_TOKEN` as the entire response body. This kit handles that automatically in `src/index.js`. The sandbox `listen` tunnel does not issue this GET; it only forwards live POSTs from the forwarder to your local routes.
 
 ### Signature verification
 
@@ -169,11 +185,13 @@ Signature verification uses `VERIFY_TOKEN`. In production set the same verify to
 
 ## Logs UI
 
-While the server is running, visit `http://localhost:3000/logs` (or whatever `PORT` you configured) in your browser to see incoming webhooks live. Toggle between Compact (one row per webhook) and Verbose (full headers and payload) with the header toggle or by pressing `v`. Press `c` to clear the on-screen log. Buffer is in-memory only and capped at the last 100 webhooks.
+While the server is running, visit `http://localhost:3000/logs` (or whatever `PORT` you configured) in your browser to see incoming webhooks live. Toggle between Compact (one row per webhook) and Verbose (full headers and payload) with the header toggle or by pressing `v`. An All / WhatsApp / Instagram filter next to the toggle narrows the stream to one channel. Press `c` to clear the on-screen log. Buffer is in-memory only and capped at the last 100 webhooks.
 
 ## /chat (local conversation viewer)
 
 While the server is running, visit `http://localhost:3000/chat` (or whatever `PORT` you configured, noting port-fallback if 3000 is taken) in your browser. You will see a per-conversation threaded view (one thread per channel and participant) of inbound and outbound messages. The view is in-memory only and clears on restart.
+
+An All / WhatsApp / Instagram filter at the top of the sidebar narrows the conversation list to one channel. Instagram threads are labeled by the sender's `@username` when the kit can resolve it (it falls back to the raw Instagram-scoped id otherwise). WhatsApp threads are labeled by the formatted phone number.
 
 Type into the bottom input and press Enter to send a message. This posts to `POST /chat/send`, which dispatches to the selected channel's `send` helper. The view mirrors the styling and server-sent events (SSE) retry behavior of the `/logs` surface.
 
@@ -188,10 +206,11 @@ To redo the tour: delete `.tutorial-state.json` and send a message from a new ph
 ## Quickstart
 
 1. Install the HookMyApp CLI: `npm install -g @gethookmyapp/cli`
-2. Pull sandbox env: `hookmyapp sandbox env --write .env`
-3. Start the server: `npm run dev`
-4. Open the tunnel (second terminal): `hookmyapp sandbox listen`
-5. Send "hi" to your sandbox number from your phone, then follow the on-screen prompts.
+2. Log in and bind a session: `hookmyapp login` then `hookmyapp sandbox start`
+3. Pull sandbox env: `hookmyapp sandbox env --write .env`
+4. Start the server: `npm run dev`
+5. Open the tunnel (second terminal): `hookmyapp sandbox listen --path /webhook/whatsapp`
+6. Send "hi" to your sandbox number from your phone, then follow the on-screen prompts.
 
 ## Next steps
 
