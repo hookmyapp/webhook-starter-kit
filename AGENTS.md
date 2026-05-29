@@ -6,7 +6,7 @@ This kit is an **Express webhook receiver wired to `@gethookmyapp/cli`**. The CL
 
 ## The 60-second mental model
 
-- **What this kit is:** an Express server (`src/index.js`, `"type": "module"`, Node >= 18) on `PORT` (default `3000`) exposing `GET /webhook` (Meta-style verify challenge) and `POST /webhook` (signed inbound webhook receiver with an echo-back auto-reply).
+- **What this kit is:** an Express server (`src/index.js`, `"type": "module"`, Node >= 20) on `PORT` (default `3000`) exposing per-channel routes `GET|POST /webhook/whatsapp` and `GET|POST /webhook/instagram` (Meta-style verify challenge on GET, signed inbound receiver with an echo-back auto-reply on POST).
 - **What the CLI is:** `@gethookmyapp/cli` (npm, global install). It owns sandbox session lifecycle, env-key issuance, the inbound tunnel, and outbound message sending. Your code never calls the HookMyApp API directly.
 - **What env is:** the server reads exactly five keys from `.env`. These are also what `hookmyapp sandbox env --write .env` writes:
   - `VERIFY_TOKEN` — per-session HMAC-SHA256 secret. Used both as the verify-challenge response body and as the HMAC key for `X-HookMyApp-Signature-256`.
@@ -66,7 +66,7 @@ What this does: writes the five sandbox keys (`VERIFY_TOKEN`, `PORT`, `META_GRAP
 npm start
 ```
 
-What this does: runs `node src/index.js`. The server listens on `localhost:3000/webhook` (or the `PORT` you set).
+What this does: runs `node src/index.js`. The server listens on `localhost:3000` and serves `/webhook/whatsapp` and `/webhook/instagram` (or the `PORT` you set).
 
 ### 6. Open the sandbox tunnel (second terminal)
 
@@ -74,7 +74,7 @@ What this does: runs `node src/index.js`. The server listens on `localhost:3000/
 hookmyapp sandbox listen --phone +<E164>
 ```
 
-What this does: opens a Cloudflare tunnel from a HookMyApp-managed public hostname to your local server. The CLI's defaults (`--port 3000 --path /webhook`) already match this kit out of the box, so no flags are needed for the common case.
+What this does: opens a Cloudflare tunnel from a HookMyApp-managed public hostname to your local server. This kit serves per-channel routes, so select the one you are testing with `--path`: `--port 3000 --path /webhook/whatsapp` for WhatsApp or `--port 3000 --path /webhook/instagram` for Instagram. (The CLI's `--path` default is `/webhook`, which this kit does not serve, so the flag is required.)
 
 ### Optional: smoke a send
 
@@ -125,7 +125,7 @@ hookmyapp channels env <channel>
 
 ```bash
 hookmyapp channels webhook set <channel> \
-  --url https://your-public-host.example.com/webhook \
+  --url https://your-public-host.example.com/webhook/whatsapp \
   --verify-token <your-chosen-token>
 ```
 
@@ -174,7 +174,7 @@ To redo the tour: delete `.tutorial-state.json` and send a message from a new ph
 
 ## Signature verification
 
-Every inbound `POST /webhook` from HookMyApp — **in both sandbox and production** — carries an `X-HookMyApp-Signature-256` header set to `sha256=<hex>` where the HMAC key is your `VERIFY_TOKEN`. HookMyApp's forwarder signs every outbound request this way; the customer-facing contract is a single shape, not two.
+Every inbound `POST /webhook/whatsapp` or `POST /webhook/instagram` from HookMyApp, in both sandbox and production, carries an `X-HookMyApp-Signature-256` header set to `sha256=<hex>` where the HMAC key is your `VERIFY_TOKEN`. HookMyApp's forwarder signs every outbound request this way; the customer-facing contract is a single shape, not two.
 
 This kit's `src/index.js` uses the parsed-then-restringified body shape because the kit ships with `express.json()` middleware. The forwarder signs `JSON.stringify(parsedBody)` on its side, and V8's `JSON.stringify` is deterministic, so parsed+restringified on your side is byte-equivalent to raw.
 
@@ -198,7 +198,7 @@ If you extend the kit and swap `express.json()` for `express.raw({ type: 'applic
 | Symptom | Fix |
 |---------|-----|
 | Server logs `VERIFY_TOKEN not set` and exits | Run `hookmyapp sandbox env --write .env`, then `npm start`. |
-| Webhook GET returns `404` | Ensure the server is running on `PORT` and the CLI is using `--path /webhook` (the default). |
+| Webhook GET returns `404` | Ensure the server is running on `PORT` and the CLI's `--path` matches a served route (`/webhook/whatsapp` or `/webhook/instagram`). |
 | `Invalid signature — rejecting webhook` 401s in logs | `.env` is stale — sandbox session rotated. Re-run `hookmyapp sandbox env --write .env` and restart `npm start`. |
 | `sandbox send` rejects recipient | Sandbox pins recipient to the session phone; no `--to` flag exists. Move to production for multi-recipient. |
 | `channels connect` popup blocked | Allow popups from `app.hookmyapp.com`, or open the URL the CLI prints manually. |
