@@ -34,6 +34,34 @@ function computeSummary(rawBody) {
   if (!rawBody || typeof rawBody !== 'object') return fallback;
 
   try {
+    // Instagram (Messenger Platform shape): entry[].messaging[], no `changes`.
+    const igEvent = Array.isArray(rawBody?.entry?.[0]?.messaging)
+      ? rawBody.entry[0].messaging[0]
+      : null;
+    if (igEvent && typeof igEvent === 'object') {
+      const igFrom =
+        typeof igEvent?.sender?.id === 'string' ? igEvent.sender.id : null;
+      const msg = igEvent.message;
+      if (msg && typeof msg === 'object') {
+        const body = typeof msg.text === 'string' ? msg.text : null;
+        return {
+          type: 'message',
+          from: igFrom,
+          text: body ?? '[ig non-text]',
+          status: null,
+          label: null,
+        };
+      }
+      const evLabel = igEvent.read
+        ? 'read'
+        : igEvent.reaction
+          ? 'reaction'
+          : igEvent.delivery
+            ? 'delivery'
+            : 'event';
+      return { type: 'other', from: igFrom, text: null, status: null, label: 'ig:' + evLabel };
+    }
+
     const value = rawBody?.entry?.[0]?.changes?.[0]?.value;
     const field = rawBody?.entry?.[0]?.changes?.[0]?.field ?? null;
     if (!value) {
@@ -408,6 +436,11 @@ const HTML_PAGE =
   '    <button id="mode-compact" role="tab" aria-selected="true">Compact</button>\n' +
   '    <button id="mode-verbose" role="tab" aria-selected="false">Verbose</button>\n' +
   '  </div>\n' +
+  '  <div class="toggle" role="tablist" aria-label="Filter by channel">\n' +
+  '    <button id="chan-all" role="tab" aria-selected="true">All</button>\n' +
+  '    <button id="chan-whatsapp" role="tab" aria-selected="false">WhatsApp</button>\n' +
+  '    <button id="chan-instagram" role="tab" aria-selected="false">Instagram</button>\n' +
+  '  </div>\n' +
   '  <div class="right">\n' +
   '    <span class="count" id="count">0 entries</span>\n' +
   '    <button class="ghost-btn" id="clear-btn">Clear</button>\n' +
@@ -432,6 +465,13 @@ const HTML_PAGE =
   '  var compactBtn = document.getElementById("mode-compact");\n' +
   '  var verboseBtn = document.getElementById("mode-verbose");\n' +
   '  var clearBtn = document.getElementById("clear-btn");\n' +
+  '  var chanAllBtn = document.getElementById("chan-all");\n' +
+  '  var chanWaBtn = document.getElementById("chan-whatsapp");\n' +
+  '  var chanIgBtn = document.getElementById("chan-instagram");\n' +
+  '  var channelFilter = "all";\n' +
+  '  function providerOf(entry) { var p = (entry && entry.path) || ""; if (p.indexOf("instagram") >= 0) return "instagram"; if (p.indexOf("whatsapp") >= 0) return "whatsapp"; return "other"; }\n' +
+  '  function matchesFilter(entry) { return channelFilter === "all" || providerOf(entry) === channelFilter; }\n' +
+  '  function visibleEntries() { return channelFilter === "all" ? entries : entries.filter(matchesFilter); }\n' +
   '\n' +
   '  function escapeText(s) { return String(s == null ? "" : s); }\n' +
   '  function pad2(n) { return n < 10 ? "0" + n : "" + n; }\n' +
@@ -445,6 +485,8 @@ const HTML_PAGE =
   '  function fromLabel(entry) {\n' +
   '    var f = entry && entry.summary && entry.summary.from;\n' +
   '    if (!f) return "system";\n' +
+  '    var p = (entry && entry.path) || "";\n' +
+  '    if (p.indexOf("instagram") >= 0) return f;\n' +
   '    return f.charAt(0) === "+" ? f : "+" + f;\n' +
   '  }\n' +
   '  function previewText(entry) {\n' +
@@ -596,14 +638,16 @@ const HTML_PAGE =
   '  }\n' +
   '\n' +
   '  function updateCount() {\n' +
-  '    countEl.textContent = entries.length + (entries.length === 1 ? " entry" : " entries");\n' +
-  '    emptyEl.classList.toggle("hidden", entries.length > 0);\n' +
+  '    var n = visibleEntries().length;\n' +
+  '    countEl.textContent = n + (n === 1 ? " entry" : " entries");\n' +
+  '    emptyEl.classList.toggle("hidden", n > 0);\n' +
   '  }\n' +
   '\n' +
   '  function renderAll() {\n' +
   '    listEl.textContent = "";\n' +
-  '    for (var i = 0; i < entries.length; i++) {\n' +
-  '      listEl.appendChild(renderEntry(entries[i]));\n' +
+  '    var vis = visibleEntries();\n' +
+  '    for (var i = 0; i < vis.length; i++) {\n' +
+  '      listEl.appendChild(renderEntry(vis[i]));\n' +
   '    }\n' +
   '    updateCount();\n' +
   '  }\n' +
@@ -620,6 +664,16 @@ const HTML_PAGE =
   '  compactBtn.addEventListener("click", function () { applyMode("compact"); });\n' +
   '  verboseBtn.addEventListener("click", function () { applyMode("verbose"); });\n' +
   '  clearBtn.addEventListener("click", function () { entries = []; expanded.clear(); renderAll(); });\n' +
+  '  function applyChannel(next) {\n' +
+  '    channelFilter = next;\n' +
+  '    chanAllBtn.setAttribute("aria-selected", next === "all" ? "true" : "false");\n' +
+  '    chanWaBtn.setAttribute("aria-selected", next === "whatsapp" ? "true" : "false");\n' +
+  '    chanIgBtn.setAttribute("aria-selected", next === "instagram" ? "true" : "false");\n' +
+  '    renderAll();\n' +
+  '  }\n' +
+  '  chanAllBtn.addEventListener("click", function () { applyChannel("all"); });\n' +
+  '  chanWaBtn.addEventListener("click", function () { applyChannel("whatsapp"); });\n' +
+  '  chanIgBtn.addEventListener("click", function () { applyChannel("instagram"); });\n' +
   '\n' +
   '  document.addEventListener("keydown", function (e) {\n' +
   '    var tag = e.target && e.target.tagName;\n' +
@@ -640,9 +694,11 @@ const HTML_PAGE =
   '      var entry = JSON.parse(ev.data);\n' +
   '      entries.unshift(entry);\n' +
   '      if (entries.length > 100) entries.length = 100;\n' +
-  '      var node = renderEntry(entry);\n' +
-  '      if (listEl.firstChild) listEl.insertBefore(node, listEl.firstChild);\n' +
-  '      else listEl.appendChild(node);\n' +
+  '      if (matchesFilter(entry)) {\n' +
+  '        var node = renderEntry(entry);\n' +
+  '        if (listEl.firstChild) listEl.insertBefore(node, listEl.firstChild);\n' +
+  '        else listEl.appendChild(node);\n' +
+  '      }\n' +
   '      updateCount();\n' +
   '      if (window.scrollY === 0) window.scrollTo(0, 0);\n' +
   '    } catch (e) { /* ignore malformed event */ }\n' +
