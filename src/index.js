@@ -16,8 +16,8 @@ const AUTO_REPLY = (text) =>
 // is unit-testable and so WhatsApp/Instagram share one tutorial flow.
 export async function handleInbound(message, ctx) {
   const { send, port, chatPush, selfId, tutorialState, tutorialStatePath } = ctx;
-  const { from, text, provider } = message;
-  if (chatPush) chatPush({ provider, direction: 'in', from, to: selfId ?? null, text, ts: new Date().toISOString() });
+  const { from, text, provider, username } = message;
+  if (chatPush) chatPush({ provider, direction: 'in', from, to: selfId ?? null, text, ts: new Date().toISOString(), username: username ?? null });
   // Key tutorial progress by (provider, from), same as the chat buffer, so a
   // WhatsApp phone and an Instagram IGSID that share a digit-string never collide.
   const tkey = `${provider}:${from}`;
@@ -28,7 +28,7 @@ export async function handleInbound(message, ctx) {
     if (body) {
       try {
         await send(from, body);
-        if (chatPush) chatPush({ provider, direction: 'out', from: selfId ?? null, to: from, text: body, ts: new Date().toISOString() });
+        if (chatPush) chatPush({ provider, direction: 'out', from: selfId ?? null, to: from, text: body, ts: new Date().toISOString(), username: username ?? null });
       } catch (err) { process.stderr.write(`tutorial send failed (non-fatal): ${err.message}\n`); }
       try { saveState(tutorialStatePath, tutorialState); } catch (err) { process.stderr.write(`tutorial save failed (non-fatal): ${err.message}\n`); }
     }
@@ -55,6 +55,20 @@ export function createApp(opts = {}) {
   mountLogs(app, logBuffer);
   const chatBuffer = createChatBuffer({ capPerPhone: 100 });
   mountChat(app, chatBuffer, { senders });
+
+  // Best-effort IG username resolution for /chat labels. Cached per-app so we
+  // do not re-fetch on every inbound from the same sender. Non-fatal: a failed
+  // lookup just leaves the raw IGSID label.
+  const usernameCache = new Map();
+  async function resolveUsername(providerName, provider, id) {
+    if (providerName !== 'instagram' || typeof provider.getUsername !== 'function' || !id) return null;
+    if (usernameCache.has(id)) return usernameCache.get(id);
+    let username = null;
+    try { username = await provider.getUsername(id); }
+    catch (err) { process.stderr.write(`username lookup failed (non-fatal): ${err.message}\n`); }
+    usernameCache.set(id, username);
+    return username;
+  }
 
   function verifyOk(req) {
     const signature = req.get('X-HookMyApp-Signature-256');
@@ -83,15 +97,16 @@ export function createApp(opts = {}) {
         });
       } catch (err) { process.stderr.write(`logs buffer push failed (non-fatal): ${err.message}\n`); }
       for (const { from, text } of provider.parseInbound(req.body)) {
+        const username = await resolveUsername(providerName, provider, from);
         const { tutorialActive } = await handleInbound(
-          { from, text, provider: providerName },
+          { from, text, provider: providerName, username },
           { send, port: app.locals.boundPort, chatPush: (e) => chatBuffer.push(e), selfId: provider.selfId(), tutorialState, tutorialStatePath },
         );
         if (!tutorialActive) {
           const reply = AUTO_REPLY(text);
           try {
             await send(from, reply);
-            chatBuffer.push({ provider: providerName, direction: 'out', from: provider.selfId(), to: from, text: reply, ts: new Date().toISOString() });
+            chatBuffer.push({ provider: providerName, direction: 'out', from: provider.selfId(), to: from, text: reply, ts: new Date().toISOString(), username: username ?? null });
           } catch (err) { console.error(`Failed to reply: ${err.message}`); }
         }
       }
