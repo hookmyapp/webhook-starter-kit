@@ -1,5 +1,25 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Instagram threads in `/chat` are now labeled by the sender's `@username` when
+  it can be resolved, falling back to the raw Instagram-scoped id.
+- `/chat` and `/logs` each gained an All / WhatsApp / Instagram filter to narrow
+  the view to a single channel.
+- `/logs` now summarizes inbound Instagram webhooks (the Messenger Platform
+  `messaging[]` shape) instead of labeling them "unknown", and shows Instagram
+  sender ids verbatim instead of prefixing them with a `+`.
+
+### Changed
+
+- The Instagram provider reads either env-key shape: the sandbox keys
+  (`INSTAGRAM_API_URL` / `INSTAGRAM_ACCOUNT_ID`) or a real channel's keys
+  (`INSTAGRAM_GRAPH_API_URL` / `INSTAGRAM_USER_ID`). This mirrors the existing
+  WhatsApp bridge, so the kit runs against a connected Instagram channel without
+  a code change.
+
 ## 2.0.0 — 2026-05-18
 
 ### Breaking
