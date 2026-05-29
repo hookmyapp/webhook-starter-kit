@@ -79,6 +79,22 @@ test('handleInbound on 4th reply sends step 4, then stops sending tutorial', asy
   assert.equal(result.tutorialActive, false);
 });
 
+test('handleInbound threads username onto the inbound chat push', async () => {
+  const pushed = [];
+  const fakeSendMessage = async () => {};
+  const { handleInbound } = await import('../src/index.js');
+  const { loadState } = await import('../src/tutorial.js');
+  const statePath = process.env.TUTORIAL_STATE_PATH;
+  const tutorialState = loadState(statePath);
+  await handleInbound(
+    { from: 'IGSID9', text: 'yo', provider: 'instagram', username: 'jane_doe' },
+    { send: fakeSendMessage, port: 4001, chatPush: (e) => pushed.push(e), selfId: 'IG_SELF', tutorialState, tutorialStatePath: statePath },
+  );
+  const inbound = pushed.find((p) => p.direction === 'in');
+  assert.ok(inbound, 'expected an inbound push');
+  assert.equal(inbound.username, 'jane_doe');
+});
+
 test('handleInbound extracts text.body from real Meta payload shape', async () => {
   const pushed = [];
   const fakeSendMessage = async () => {};
