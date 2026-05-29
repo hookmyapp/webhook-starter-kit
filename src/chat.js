@@ -115,6 +115,10 @@ const HTML_PAGE =
   '.layout { display: grid; grid-template-columns: 280px 1fr; height: calc(100vh - 56px); }\n' +
   'aside.sidebar { background: var(--panel); border-right: 1px solid var(--border-subtle); overflow-y: auto; }\n' +
   '.sidebar-head { padding: 14px 16px 10px; font-size: 11px; font-weight: 500; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border-subtle); }\n' +
+  '.chan-filter { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); }\n' +
+  '.chan-filter button { flex: 1; background: transparent; border: 1px solid var(--border-translucent); color: var(--text-tertiary); font-family: inherit; font-size: 11.5px; font-weight: 510; padding: 5px 6px; border-radius: 6px; cursor: pointer; transition: color 120ms, background 120ms; }\n' +
+  '.chan-filter button:hover { color: var(--text-primary); }\n' +
+  '.chan-filter button[aria-selected="true"] { background: var(--surface-2); color: var(--text-primary); border-color: transparent; }\n' +
   '.phone-row { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border-subtle); transition: background 80ms; }\n' +
   '.phone-row:hover { background: rgba(255,255,255,0.03); }\n' +
   '.phone-row.active { background: rgba(94,106,210,0.10); border-left: 2px solid var(--indigo-primary); padding-left: 14px; }\n' +
@@ -186,6 +190,11 @@ const HTML_PAGE =
   '<div class="layout">\n' +
   '  <aside class="sidebar">\n' +
   '    <div class="sidebar-head">Conversations</div>\n' +
+  '    <div class="chan-filter" id="chan-filter" role="tablist" aria-label="Filter by channel">\n' +
+  '      <button type="button" data-chan="all" role="tab" aria-selected="true">All</button>\n' +
+  '      <button type="button" data-chan="whatsapp" role="tab" aria-selected="false">WhatsApp</button>\n' +
+  '      <button type="button" data-chan="instagram" role="tab" aria-selected="false">Instagram</button>\n' +
+  '    </div>\n' +
   '    <div id="phone-list"></div>\n' +
   '    <div class="empty" id="sidebar-empty">Waiting for messages.<div class="hint">Send a WhatsApp or Instagram message to your sandbox to see it here.</div></div>\n' +
   '  </aside>\n' +
@@ -211,6 +220,8 @@ const HTML_PAGE =
   '  var form = document.getElementById("send");\n' +
   '  var conn = document.getElementById("conn");\n' +
   '  var connLabel = document.getElementById("conn-label");\n' +
+  '  var chanFilterEl = document.getElementById("chan-filter");\n' +
+  '  var channelFilter = "all";\n' +
   '\n' +
   '  function setConn(state) {\n' +
   '    conn.className = "conn " + state;\n' +
@@ -252,20 +263,33 @@ const HTML_PAGE =
   '    else { cc = raw.slice(0, 2); rest = raw.slice(2); }\n' +
   '    return "+" + cc + " " + rest.slice(0, 3) + " " + rest.slice(3, 6) + (rest.length > 6 ? " " + rest.slice(6) : "");\n' +
   '  }\n' +
+  '  /* Thread label: for IG prefer the resolved @username from any entry; else the raw id. */\n' +
+  '  function labelForThread(key, entries) {\n' +
+  '    var i = key.indexOf(":"); var prov = key.slice(0, i); var id = key.slice(i + 1);\n' +
+  '    if (prov === "instagram") {\n' +
+  '      for (var j = (entries || []).length - 1; j >= 0; j--) {\n' +
+  '        if (entries[j] && entries[j].username) return "@" + entries[j].username;\n' +
+  '      }\n' +
+  '    }\n' +
+  '    return fmtParticipant(prov, id);\n' +
+  '  }\n' +
   '\n' +
   '  function renderSidebar() {\n' +
   '    phoneList.textContent = "";\n' +
-  '    if (phones.length === 0) {\n' +
-  '      sidebarEmpty.style.display = "";\n' +
-  '      return;\n' +
-  '    }\n' +
-  '    sidebarEmpty.style.display = "none";\n' +
   '    /* Sort phones by latest activity, newest first. */\n' +
   '    var ordered = phones.slice().sort(function (a, b) {\n' +
   '      var la = (byPhone[a] || []).slice(-1)[0];\n' +
   '      var lb = (byPhone[b] || []).slice(-1)[0];\n' +
   '      return new Date(lb ? lb.ts : 0) - new Date(la ? la.ts : 0);\n' +
   '    });\n' +
+  '    if (channelFilter !== "all") {\n' +
+  '      ordered = ordered.filter(function (k) { return k.indexOf(channelFilter + ":") === 0; });\n' +
+  '    }\n' +
+  '    if (ordered.length === 0) {\n' +
+  '      sidebarEmpty.style.display = "";\n' +
+  '      return;\n' +
+  '    }\n' +
+  '    sidebarEmpty.style.display = "none";\n' +
   '    for (var i = 0; i < ordered.length; i++) {\n' +
   '      var p = ordered[i];\n' +
   '      var entries = byPhone[p] || [];\n' +
@@ -274,7 +298,7 @@ const HTML_PAGE =
   '      row.className = "phone-row" + (p === selected ? " active" : "");\n' +
   '      var top = document.createElement("div"); top.className = "top";\n' +
   '      var _ki = p.indexOf(":"); var _kprov = p.slice(0, _ki); var _kid = p.slice(_ki + 1);\n' +
-  '      var num = document.createElement("div"); num.className = "num"; num.textContent = fmtParticipant(_kprov, _kid);\n' +
+  '      var num = document.createElement("div"); num.className = "num"; num.textContent = labelForThread(p, entries);\n' +
   '      var when = document.createElement("div"); when.className = "when"; when.textContent = last ? fmtRel(last.ts) : "";\n' +
   '      top.appendChild(num); top.appendChild(when);\n' +
   '      row.appendChild(top);\n' +
@@ -316,7 +340,7 @@ const HTML_PAGE =
   '    }\n' +
   '    threadHead.hidden = false;\n' +
   '    var _si = selected.indexOf(":"); var _sprov = selected.slice(0, _si); var _sid = selected.slice(_si + 1);\n' +
-  '    threadWho.textContent = fmtParticipant(_sprov, _sid);\n' +
+  '    threadWho.textContent = labelForThread(selected, byPhone[selected] || []);\n' +
   '    var entries = byPhone[selected] || [];\n' +
   '    threadMeta.textContent = entries.length + " message" + (entries.length === 1 ? "" : "s");\n' +
   '    var prevDir = null;\n' +
@@ -348,6 +372,14 @@ const HTML_PAGE =
   '    if (!byPhone[key]) { byPhone[key] = []; phones.push(key); }\n' +
   '    byPhone[key].push(entry);\n' +
   '  }\n' +
+  '\n' +
+  '  function applyChannelFilter(next) {\n' +
+  '    channelFilter = next;\n' +
+  '    var btns = chanFilterEl ? chanFilterEl.querySelectorAll("button") : [];\n' +
+  '    for (var i = 0; i < btns.length; i++) { btns[i].setAttribute("aria-selected", btns[i].getAttribute("data-chan") === next ? "true" : "false"); }\n' +
+  '    renderSidebar();\n' +
+  '  }\n' +
+  '  if (chanFilterEl) { chanFilterEl.addEventListener("click", function (e) { var b = e.target.closest("button[data-chan]"); if (b) applyChannelFilter(b.getAttribute("data-chan")); }); }\n' +
   '\n' +
   '  setConn("connecting");\n' +
   '  var es = new EventSource("/chat/stream");\n' +
