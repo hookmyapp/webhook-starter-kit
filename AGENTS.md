@@ -209,6 +209,6 @@ If you extend the kit and swap `express.json()` for `express.raw({ type: 'applic
 ## Going further
 
 - `hookmyapp <command> --help` — print full flags for any command.
-- `hookmyapp --help` — full command surface (login, logout, workspace, channels, sandbox, billing, config). Channel-scoped operations live under `hookmyapp channels` (`env`, `token`, `health`, `webhook set`). Top-level `env`/`token`/`health`/`webhook` are deprecated aliases for one release.
+- `hookmyapp --help` — full command surface (login, logout, workspace, channels, sandbox, billing, config). Channel-scoped operations live under `hookmyapp channels` (`env`, `token`, `health`, `webhook set`).
 - Global flags worth knowing: `--json` (machine-readable output), `--workspace <name|slug|id>`, `--debug`.
 - npm package: <https://www.npmjs.com/package/@gethookmyapp/cli>.
