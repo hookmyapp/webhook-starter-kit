@@ -1,3 +1,4 @@
 node_modules/
 .env
 .tutorial-state.json
+.DS_Store
