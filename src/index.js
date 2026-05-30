@@ -24,7 +24,7 @@ export async function handleInbound(message, ctx) {
   const current = getStep(tutorialState, tkey);
   if (current < TOTAL_STEPS) {
     const next = advance(tutorialState, tkey);
-    const body = getStepMessage(next, port);
+    const body = getStepMessage(next, port, provider);
     if (body) {
       try {
         await send(from, body);
