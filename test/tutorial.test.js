@@ -60,6 +60,27 @@ test('getStepMessage returns null for completed tour', () => {
   assert.equal(getStepMessage(0, 3000), null);
 });
 
+test('getStepMessage defaults to WhatsApp copy (back-compat, no provider arg)', () => {
+  const m1 = getStepMessage(1, 3000);
+  assert.match(m1, /received this WhatsApp message/);
+  assert.match(m1, /Reply anything from your phone/);
+  const m3 = getStepMessage(3, 3000);
+  assert.match(m3, /your own WhatsApp number/);
+  assert.match(m3, /channels connect whatsapp/);
+});
+
+test('getStepMessage renders Instagram copy for the instagram provider', () => {
+  const m1 = getStepMessage(1, 3000, 'instagram');
+  assert.match(m1, /received this Instagram message/);
+  assert.match(m1, /Reply anything from Instagram/);
+  assert.doesNotMatch(m1, /WhatsApp|your phone/);
+  const m3 = getStepMessage(3, 3000, 'instagram');
+  assert.match(m3, /your own Instagram account/);
+  assert.match(m3, /channels connect instagram/);
+  assert.match(m3, /from your real account/);
+  assert.doesNotMatch(m3, /WhatsApp number|real number/);
+});
+
 test('loadState returns empty Map when file missing', () => {
   const missing = join(dir, 'nope.json');
   const map = loadState(missing);
