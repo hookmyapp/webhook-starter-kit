@@ -193,14 +193,6 @@ An All / WhatsApp / Instagram filter at the top of the sidebar narrows the conve
 
 Type into the bottom input and press Enter to send a message. This posts to `POST /chat/send`, which dispatches to the selected channel's `send` helper. The view mirrors the styling and server-sent events (SSE) retry behavior of the `/logs` surface.
 
-## Tutorial trail
-
-When your server receives the first inbound text from a phone, a 4-step guided tutorial fires automatically. It advances to the next step on any reply from that phone. The state persists to `.tutorial-state.json` in the kit's working directory (gitignored).
-
-Step 4 is final and instructs the developer to find and edit the `// CUSTOMIZE` marker in `src/index.js`. On save, Node `--watch` restarts the server. The persistent state ensures the tour does not re-fire from step 1.
-
-To redo the tour: delete `.tutorial-state.json` and send a message from a new phone, or clear the `completedStep` in the JSON file and restart the server.
-
 ## Quickstart
 
 1. Install the HookMyApp CLI: `npm install -g @gethookmyapp/cli`
