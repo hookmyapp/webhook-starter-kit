@@ -164,14 +164,6 @@ While the server is running, visit `http://localhost:3000/chat` (or whatever `PO
 
 Type into the bottom input and press Enter to send a message. This posts to `POST /chat/send`, which calls `sendMessage` with your credentials. The view mirrors the styling and server-sent events (SSE) retry behavior of the `/logs` surface.
 
-## Tutorial trail
-
-When your server receives the first inbound text from a phone, a 4-step guided tutorial fires automatically. It advances to the next step on any reply from that phone. The state persists to `.tutorial-state.json` in the kit's working directory (gitignored).
-
-Step 4 is final and instructs the developer to find and edit the `// CUSTOMIZE` marker in `src/index.js`. On save, Node `--watch` restarts the server. The persistent state ensures the tour does not re-fire from step 1.
-
-To redo the tour: delete `.tutorial-state.json` and send a message from a new phone, or clear the `completedStep` in the JSON file and restart the server.
-
 ## Signature verification
 
 Every inbound `POST /webhook/whatsapp` or `POST /webhook/instagram` from HookMyApp, in both sandbox and production, carries an `X-HookMyApp-Signature-256` header set to `sha256=<hex>` where the HMAC key is your `VERIFY_TOKEN`. HookMyApp's forwarder signs every outbound request this way; the customer-facing contract is a single shape, not two.

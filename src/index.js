@@ -3,38 +3,26 @@ import 'dotenv/config';
 import { createHmac } from 'node:crypto';
 import { createLogBuffer, mountLogs } from './logs.js';
 import { createChatBuffer, mountChat } from './chat.js';
-import { loadState, saveState, getStep, advance, getStepMessage, TOTAL_STEPS } from './tutorial.js';
 import * as whatsapp from './providers/whatsapp.js';
 import * as instagram from './providers/instagram.js';
 
 const PROVIDERS = { whatsapp, instagram };
-// Preserve the existing shipped auto-reply copy verbatim (do not change user-facing text).
+// CUSTOMIZE: this is the reply sent for every inbound message. Change the text
+// (or replace the whole function with your own logic) to build your app.
 const AUTO_REPLY = (text) =>
   `✅ Your webhook is connected! We received your message:\n\n"${text}"\n\nYou're all set to start building with HookMyApp.`;
 
-// Normalized inbound handler. ctx carries injectable side-effects + state so it
-// is unit-testable and so WhatsApp/Instagram share one tutorial flow.
+// Normalized inbound handler. ctx carries injectable side-effects so it is
+// unit-testable and so WhatsApp/Instagram share one reply flow.
 export async function handleInbound(message, ctx) {
-  const { send, port, chatPush, selfId, tutorialState, tutorialStatePath } = ctx;
+  const { send, chatPush, selfId } = ctx;
   const { from, text, provider, username } = message;
   if (chatPush) chatPush({ provider, direction: 'in', from, to: selfId ?? null, text, ts: new Date().toISOString(), username: username ?? null });
-  // Key tutorial progress by (provider, from), same as the chat buffer, so a
-  // WhatsApp phone and an Instagram IGSID that share a digit-string never collide.
-  const tkey = `${provider}:${from}`;
-  const current = getStep(tutorialState, tkey);
-  if (current < TOTAL_STEPS) {
-    const next = advance(tutorialState, tkey);
-    const body = getStepMessage(next, port, provider);
-    if (body) {
-      try {
-        await send(from, body);
-        if (chatPush) chatPush({ provider, direction: 'out', from: selfId ?? null, to: from, text: body, ts: new Date().toISOString(), username: username ?? null });
-      } catch (err) { process.stderr.write(`tutorial send failed (non-fatal): ${err.message}\n`); }
-      try { saveState(tutorialStatePath, tutorialState); } catch (err) { process.stderr.write(`tutorial save failed (non-fatal): ${err.message}\n`); }
-    }
-    return { tutorialActive: true };
-  }
-  return { tutorialActive: false };
+  const reply = AUTO_REPLY(text);
+  try {
+    await send(from, reply);
+    if (chatPush) chatPush({ provider, direction: 'out', from: selfId ?? null, to: from, text: reply, ts: new Date().toISOString(), username: username ?? null });
+  } catch (err) { console.error(`Failed to reply: ${err.message}`); }
 }
 
 export function createApp(opts = {}) {
@@ -42,10 +30,6 @@ export function createApp(opts = {}) {
   // (the tests rely on this) instead of falling back to process.env.
   const verifyToken = Object.hasOwn(opts, 'verifyToken') ? opts.verifyToken : (process.env.VERIFY_TOKEN || null);
   const senders = opts.senders ?? { whatsapp: whatsapp.send, instagram: instagram.send };
-  const tutorialStatePath = opts.tutorialStatePath
-    ?? process.env.TUTORIAL_STATE_PATH
-    ?? new URL('../.tutorial-state.json', import.meta.url).pathname;
-  const tutorialState = loadState(tutorialStatePath);
 
   const app = express();
   app.use(express.json());
@@ -98,17 +82,10 @@ export function createApp(opts = {}) {
       } catch (err) { process.stderr.write(`logs buffer push failed (non-fatal): ${err.message}\n`); }
       for (const { from, text } of provider.parseInbound(req.body)) {
         const username = await resolveUsername(providerName, provider, from);
-        const { tutorialActive } = await handleInbound(
+        await handleInbound(
           { from, text, provider: providerName, username },
-          { send, port: app.locals.boundPort, chatPush: (e) => chatBuffer.push(e), selfId: provider.selfId(), tutorialState, tutorialStatePath },
+          { send, chatPush: (e) => chatBuffer.push(e), selfId: provider.selfId() },
         );
-        if (!tutorialActive) {
-          const reply = AUTO_REPLY(text);
-          try {
-            await send(from, reply);
-            chatBuffer.push({ provider: providerName, direction: 'out', from: provider.selfId(), to: from, text: reply, ts: new Date().toISOString(), username: username ?? null });
-          } catch (err) { console.error(`Failed to reply: ${err.message}`); }
-        }
       }
       res.json({ status: 'ok' });
     });
