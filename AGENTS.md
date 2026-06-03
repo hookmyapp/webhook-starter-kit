@@ -6,7 +6,7 @@ This kit is an **Express webhook receiver wired to `@gethookmyapp/cli`**. The CL
 
 ## The 60-second mental model
 
-- **What this kit is:** an Express server (`src/index.js`, `"type": "module"`, Node >= 20) on `PORT` (default `3000`) exposing per-channel routes `GET|POST /webhook/whatsapp` and `GET|POST /webhook/instagram` (Meta-style verify challenge on GET, signed inbound receiver with an echo-back auto-reply on POST).
+- **What this kit is:** an Express server (`src/index.js`, `"type": "module"`, Node >= 20) on `PORT` (default `3000`) exposing per-channel routes `GET|POST /webhook/whatsapp` and `GET|POST /webhook/instagram` (Meta-style verify challenge on GET, signed inbound receiver on POST). Inbound messages are recorded to the `/chat` and `/logs` views; the kit does not reply on its own — reply logic goes in the `// CUSTOMIZE` block of `handleInbound`.
 - **What the CLI is:** `@gethookmyapp/cli` (npm, global install). It owns sandbox session lifecycle, env-key issuance, the inbound tunnel, and outbound message sending. Your code never calls the HookMyApp API directly.
 - **What env is:** the server reads exactly five keys from `.env`. These are also what `hookmyapp sandbox env --write .env` writes:
   - `VERIFY_TOKEN` — per-session HMAC-SHA256 secret. Used both as the verify-challenge response body and as the HMAC key for `X-HookMyApp-Signature-256`.
@@ -82,7 +82,7 @@ What this does: opens a Cloudflare tunnel from a HookMyApp-managed public hostna
 hookmyapp sandbox send --message "hello"
 ```
 
-The sandbox pins the recipient to the session phone server-side — there is **no `--to` flag** and the sandbox proxy rejects any other destination. To verify inbound, send a WhatsApp message from the session phone to the sandbox business number; you should see the payload in the `npm start` terminal and an auto-reply on your phone.
+The sandbox pins the recipient to the session phone server-side — there is **no `--to` flag** and the sandbox proxy rejects any other destination. To verify inbound, send a WhatsApp message from the session phone to the sandbox business number; you should see the payload in the `npm start` terminal and the message at `/chat`. The kit does not reply on its own.
 
 ## Production setup
 

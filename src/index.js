@@ -7,22 +7,24 @@ import * as whatsapp from './providers/whatsapp.js';
 import * as instagram from './providers/instagram.js';
 
 const PROVIDERS = { whatsapp, instagram };
-// CUSTOMIZE: this is the reply sent for every inbound message. Change the text
-// (or replace the whole function with your own logic) to build your app.
-const AUTO_REPLY = (text) =>
-  `✅ Your webhook is connected! We received your message:\n\n"${text}"\n\nYou're all set to start building with HookMyApp.`;
 
 // Normalized inbound handler. ctx carries injectable side-effects so it is
-// unit-testable and so WhatsApp/Instagram share one reply flow.
+// unit-testable and so WhatsApp/Instagram share one inbound flow.
+//
+// Out of the box this kit only RECORDS inbound messages — they show up at
+// /chat and /logs, and nothing is sent back. To make it reply, uncomment and
+// edit the CUSTOMIZE block below (`send` and `selfId` come from ctx).
 export async function handleInbound(message, ctx) {
   const { send, chatPush, selfId } = ctx;
   const { from, text, provider, username } = message;
   if (chatPush) chatPush({ provider, direction: 'in', from, to: selfId ?? null, text, ts: new Date().toISOString(), username: username ?? null });
-  const reply = AUTO_REPLY(text);
-  try {
-    await send(from, reply);
-    if (chatPush) chatPush({ provider, direction: 'out', from: selfId ?? null, to: from, text: reply, ts: new Date().toISOString(), username: username ?? null });
-  } catch (err) { console.error(`Failed to reply: ${err.message}`); }
+
+  // CUSTOMIZE: reply to the sender. Uncomment and edit:
+  //
+  //   const reply = `You said: ${text}`;
+  //   await send(from, reply);
+  //   if (chatPush) chatPush({ provider, direction: 'out', from: selfId ?? null, to: from, text: reply, ts: new Date().toISOString(), username: username ?? null });
+  void send; // kept in scope for the CUSTOMIZE block above
 }
 
 export function createApp(opts = {}) {
