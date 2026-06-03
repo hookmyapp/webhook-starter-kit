@@ -45,25 +45,24 @@ test('GET /webhook/whatsapp echoes empty token when unset', async () => {
   assert.equal(await res.text(), '');
 });
 
-test('POST /webhook/instagram parses IG and dispatches to the instagram sender only', async () => {
+test('POST /webhook/instagram accepts an IG webhook and does not auto-reply', async () => {
   const calls = [];
   const app = createApp({ verifyToken: null, senders: fakeSenders(calls) });
   const { s, base } = listen(app);
   const res = await post(base, '/webhook/instagram', IG_BODY);
   s.close();
   assert.equal(res.status, 200);
-  assert.ok(calls.length >= 1);
-  assert.ok(calls.every(([p, to]) => p === 'instagram' && to === 'IGSID9'));
+  assert.equal(calls.length, 0);
 });
 
-test('POST /webhook/whatsapp dispatches to the whatsapp sender only', async () => {
+test('POST /webhook/whatsapp accepts a WA webhook and does not auto-reply', async () => {
   const calls = [];
   const app = createApp({ verifyToken: null, senders: fakeSenders(calls) });
   const { s, base } = listen(app);
-  await post(base, '/webhook/whatsapp', WA_BODY);
+  const res = await post(base, '/webhook/whatsapp', WA_BODY);
   s.close();
-  assert.ok(calls.length >= 1);
-  assert.ok(calls.every(([p, to]) => p === 'whatsapp' && to === '15551230000'));
+  assert.equal(res.status, 200);
+  assert.equal(calls.length, 0);
 });
 
 test('POST is accepted unsigned when verifyToken is unset (skip path)', async () => {
@@ -83,14 +82,12 @@ test('POST is 401 on signature mismatch when verifyToken is set', async () => {
 });
 
 test('POST accepts a correct signature when verifyToken is set', async () => {
-  const calls = [];
-  const app = createApp({ verifyToken: 'secret', senders: fakeSenders(calls) });
+  const app = createApp({ verifyToken: 'secret', senders: fakeSenders([]) });
   const { s, base } = listen(app);
   const sig = 'sha256=' + createHmac('sha256', 'secret').update(JSON.stringify(IG_BODY)).digest('hex');
   const res = await post(base, '/webhook/instagram', IG_BODY, { 'X-HookMyApp-Signature-256': sig });
   s.close();
   assert.equal(res.status, 200);
-  assert.ok(calls.length >= 1);
 });
 
 test('POST is 401 (not 500) on a non-JSON body when verifyToken is set', async () => {
