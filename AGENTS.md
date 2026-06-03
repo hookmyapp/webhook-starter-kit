@@ -116,10 +116,23 @@ Note the `channel_id` (e.g. `ch_xxxxxxxx`) — you will pass it to the next thre
 ### 4. Pull production env values
 
 ```bash
-hookmyapp channels env <channel>
+hookmyapp keys create <channel>          # mint a per-connection hmp_live_... gateway key
+hookmyapp channels env <channel> --write .env
 ```
 
 `hookmyapp channels env <channel>` emits the keys needed (`WHATSAPP_*` + `HOOKMYAPP_CHANNEL_ID` + `VERIFY_TOKEN`). Credentials in your .env use the WHATSAPP_ prefix everywhere (kit, CLI, frontend download, docs). The kit code in `src/index.js` does NOT change between sandbox and production. Only these values flip.
+
+**Gateway (recommended production path):** the kit is transport-agnostic — it only swaps the base URL plus the Bearer token, so the same code runs unchanged against the sandbox, the HookMyApp gateway, or direct Meta. For the gateway, mint a key with `hookmyapp keys create <channel>` and set the base to the gateway:
+
+- `META_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v22.0` — the gateway base; the kit appends `/{phone-number-id}/messages` verbatim. `channels env --write` writes this for you.
+- `WHATSAPP_ACCESS_TOKEN=hmp_live_...` — the minted gateway key, sent as the Bearer token.
+- `WHATSAPP_PHONE_NUMBER_ID` — the channel's phone number ID.
+
+API keys are **per-connection**: a WhatsApp channel's key does not authorize an Instagram connection. For Instagram production, mint a separate key for the Instagram channel and set `INSTAGRAM_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v25.0` with its own `hmp_live_...` token.
+
+**Choose exactly one transport per channel.** The kit resolves the base as `*_API_URL ?? *_GRAPH_API_URL`, so a sandbox `WHATSAPP_API_URL` / `INSTAGRAM_API_URL` WINS over the gateway `*_GRAPH_API_URL` when both are set — the kit would silently keep hitting the sandbox with the minted `hmp_` key, which the sandbox rejects. When moving to the gateway, comment out or remove the sandbox `*_API_URL` lines. See `.env.example` for the annotated block.
+
+**Direct Meta** is also supported: point the base at `https://graph.facebook.com/v24.0` (or your channel's pinned Graph version) with a Meta access token. The receivers, signature verification, and `send` helpers are identical to the gateway path.
 
 ### 5. Configure the production webhook URL
 

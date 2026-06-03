@@ -160,7 +160,26 @@ The kit does not reply to inbound messages by default — it just records them (
 
 ## Going to production
 
-When you're ready to move off the sandbox and onto a real WABA, swap the `WHATSAPP_*` values to your production credentials. The dashboard's Copy/Download Credentials buttons emit the current Graph version URL, so use that value for `WHATSAPP_API_URL`. The webhook receivers, signature verification, and per-channel `send` helpers all stay the same.
+When you're ready to move off the sandbox and onto a real WABA, swap the `WHATSAPP_*` values to your production credentials. The webhook receivers, signature verification, and per-channel `send` helpers all stay the same. The kit only swaps the base URL plus the Bearer token, so the same code runs unchanged against the sandbox, the HookMyApp gateway, or direct Meta.
+
+### Production via the HookMyApp gateway
+
+The gateway is the recommended production path. Mint a per-connection API key and point the kit's base URL at the gateway:
+
+```bash
+hookmyapp keys create <channel>        # mints an hmp_live_... key for that connection
+hookmyapp channels env <channel> --write .env
+```
+
+`channels env --write` writes `META_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v22.0` (the gateway base) plus the minted `hmp_live_...` token as `WHATSAPP_ACCESS_TOKEN` and the channel's `WHATSAPP_PHONE_NUMBER_ID`. The kit appends `/{phone-number-id}/messages` to that base verbatim.
+
+API keys are per-connection: a key minted for a WhatsApp channel does not authorize an Instagram connection. For Instagram production, mint a key for the Instagram channel and set `INSTAGRAM_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v25.0` with its own `hmp_live_...` token.
+
+> Choose exactly one transport per channel. The kit resolves the base as `*_API_URL ?? *_GRAPH_API_URL`, so a sandbox `WHATSAPP_API_URL` / `INSTAGRAM_API_URL` wins over the gateway `*_GRAPH_API_URL` if both are set. When moving to the gateway, comment out or remove the sandbox `*_API_URL` lines. See `.env.example` for the annotated block.
+
+### Production via direct Meta
+
+You can also point the base URL straight at Meta (`https://graph.facebook.com/v24.0` or whatever Graph version your channel is pinned to) with a Meta access token. The dashboard's Copy/Download Credentials buttons emit the current Graph version URL. The receivers, signature verification, and `send` helpers are identical to the gateway path.
 
 ## WhatsApp and Instagram
 
