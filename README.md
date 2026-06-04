@@ -164,16 +164,16 @@ When you're ready to move off the sandbox and onto a real WABA, swap the `WHATSA
 
 ### Production via the HookMyApp gateway
 
-The gateway is the recommended production path. Mint a per-connection API key and point the kit's base URL at the gateway:
+The gateway is the recommended production path. Mint a per-connection access token and point the kit's base URL at the gateway:
 
 ```bash
-hookmyapp keys create <channel>        # mints an hmp_live_... key for that connection
+hookmyapp access-tokens create <channel>        # mints an hmat_live_... key for that connection
 hookmyapp channels env <channel> --write .env
 ```
 
-`channels env --write` writes `META_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v22.0` (the gateway base) plus the minted `hmp_live_...` token as `WHATSAPP_ACCESS_TOKEN` and the channel's `WHATSAPP_PHONE_NUMBER_ID`. The kit appends `/{phone-number-id}/messages` to that base verbatim.
+`channels env --write` writes `META_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v22.0` (the gateway base) plus the minted `hmat_live_...` token as `WHATSAPP_ACCESS_TOKEN` and the channel's `WHATSAPP_PHONE_NUMBER_ID`. The kit appends `/{phone-number-id}/messages` to that base verbatim.
 
-API keys are per-connection: a key minted for a WhatsApp channel does not authorize an Instagram connection. For Instagram production, mint a key for the Instagram channel and set `INSTAGRAM_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v25.0` with its own `hmp_live_...` token.
+access tokens are per-connection: a access token minted for a WhatsApp channel does not authorize an Instagram connection. For Instagram production, mint an access token for the Instagram channel and set `INSTAGRAM_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v25.0` with its own `hmat_live_...` token.
 
 > Choose exactly one transport per channel. The kit resolves the base as `*_API_URL ?? *_GRAPH_API_URL`, so a sandbox `WHATSAPP_API_URL` / `INSTAGRAM_API_URL` wins over the gateway `*_GRAPH_API_URL` if both are set. When moving to the gateway, comment out or remove the sandbox `*_API_URL` lines. See `.env.example` for the annotated block.
 
