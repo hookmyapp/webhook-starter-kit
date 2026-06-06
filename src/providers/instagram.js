@@ -9,8 +9,16 @@ export function parseInbound(reqBody) {
     for (const ev of e.messaging ?? []) {
       const m = ev.message;
       if (!m || m.is_echo || m.is_deleted || m.is_unsupported) continue;
-      if (!m.text) continue;
-      out.push({ from: ev.sender?.id, text: m.text });
+      if (m.text) out.push({ from: ev.sender?.id, text: m.text });
+      // Attachments arrive as a directly-loadable, Meta-signed lookaside URL —
+      // no gateway/token resolution needed (unlike WhatsApp media ids). Emit
+      // one entry per attachment so each renders as its own bubble in /chat.
+      for (const att of m.attachments ?? []) {
+        const url = att?.payload?.url;
+        if (!url) continue;
+        const kind = att.type === 'video' ? 'video' : att.type === 'audio' ? 'audio' : 'image';
+        out.push({ from: ev.sender?.id, text: null, media: { kind, url } });
+      }
     }
   }
   return out;

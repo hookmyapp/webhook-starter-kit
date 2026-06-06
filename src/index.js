@@ -16,8 +16,8 @@ const PROVIDERS = { whatsapp, instagram };
 // edit the CUSTOMIZE block below (`send` and `selfId` come from ctx).
 export async function handleInbound(message, ctx) {
   const { send, chatPush, selfId } = ctx;
-  const { from, text, provider, username } = message;
-  if (chatPush) chatPush({ provider, direction: 'in', from, to: selfId ?? null, text, ts: new Date().toISOString(), username: username ?? null });
+  const { from, text, media, provider, username } = message;
+  if (chatPush) chatPush({ provider, direction: 'in', from, to: selfId ?? null, text, media: media ?? null, ts: new Date().toISOString(), username: username ?? null });
 
   // CUSTOMIZE: reply to the sender. Uncomment and edit:
   //
@@ -82,10 +82,10 @@ export function createApp(opts = {}) {
           byteSize: Buffer.byteLength(JSON.stringify(req.body)), rawBody: req.body,
         });
       } catch (err) { process.stderr.write(`logs buffer push failed (non-fatal): ${err.message}\n`); }
-      for (const { from, text } of provider.parseInbound(req.body)) {
+      for (const { from, text, media } of provider.parseInbound(req.body)) {
         const username = await resolveUsername(providerName, provider, from);
         await handleInbound(
-          { from, text, provider: providerName, username },
+          { from, text, media, provider: providerName, username },
           { send, chatPush: (e) => chatBuffer.push(e), selfId: provider.selfId() },
         );
       }
@@ -94,6 +94,23 @@ export function createApp(opts = {}) {
   }
   mountWebhookRoute('/webhook/whatsapp', 'whatsapp');
   mountWebhookRoute('/webhook/instagram', 'instagram');
+
+  // Media proxy: WhatsApp media arrives as an id that needs token-authed
+  // resolution + download through the gateway, so the browser can't load it
+  // directly. /chat points <img>/<video> at this route, which resolves the
+  // gateway-signed URL and streams the bytes back. (Instagram media is a
+  // directly-loadable lookaside URL, so it needs no proxy.)
+  app.get('/media/whatsapp/:id', async (req, res) => {
+    try {
+      const { buffer, mime } = await whatsapp.fetchMedia(req.params.id);
+      res.set('Content-Type', mime);
+      res.set('Cache-Control', 'private, max-age=86400');
+      res.send(buffer);
+    } catch (err) {
+      process.stderr.write(`media proxy failed (non-fatal): ${err.message}\n`);
+      res.sendStatus(502);
+    }
+  });
 
   return app;
 }

@@ -148,6 +148,16 @@ const HTML_PAGE =
   '.row .ts { font-size: 10.5px; color: var(--text-tertiary); padding: 2px 4px 0; }\n' +
   '@keyframes fadeUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }\n' +
   '\n' +
+  '/* Media bubbles */\n' +
+  '.bubble.media { padding: 4px; overflow: hidden; }\n' +
+  '.media-el { display: block; max-width: 300px; max-height: 340px; border-radius: 10px; background: var(--canvas); }\n' +
+  'img.media-el { width: 100%; height: auto; object-fit: cover; cursor: zoom-in; }\n' +
+  'video.media-el { width: 300px; height: auto; outline: none; }\n' +
+  'audio.media-el { width: 264px; }\n' +
+  '.bubble.media .caption { padding: 7px 9px 3px; font-size: 13.5px; line-height: 1.4; }\n' +
+  '.bubble.doc { display: inline-flex; align-items: center; gap: 9px; }\n' +
+  '.bubble.doc .doc-icon { font-size: 18px; }\n' +
+  '\n' +
   '/* Send form */\n' +
   'form#send { display: flex; gap: 8px; padding: 12px 22px 16px; border-top: 1px solid var(--border-subtle); background: var(--panel); }\n' +
   'form#send input { flex: 1; background: var(--surface); border: 1px solid var(--border-translucent); border-radius: 10px; color: var(--text-primary); padding: 10px 14px; font-size: 14px; font-family: inherit; transition: border-color 120ms; }\n' +
@@ -239,6 +249,24 @@ const HTML_PAGE =
   '    } catch (e) { return ""; }\n' +
   '  }\n' +
   '\n' +
+  '  /* Resolve a media entry to a loadable <img>/<video> src. IG carries a\n' +
+  '     direct lookaside url; WhatsApp carries an id we route through the\n' +
+  '     /media/<provider>/<id> proxy (token-authed gateway download). */\n' +
+  '  function mediaSrc(entry) {\n' +
+  '    var md = entry && entry.media; if (!md) return null;\n' +
+  '    if (md.url) return md.url;\n' +
+  '    if (md.id) return "/media/" + (entry.provider || "whatsapp") + "/" + encodeURIComponent(md.id);\n' +
+  '    return null;\n' +
+  '  }\n' +
+  '  function mediaLabel(md) {\n' +
+  '    var k = md && md.kind;\n' +
+  '    if (k === "video") return "🎥 Video";\n' +
+  '    if (k === "audio") return "🎙 Audio";\n' +
+  '    if (k === "document") return "📄 Document";\n' +
+  '    if (k === "sticker") return "🌟 Sticker";\n' +
+  '    return "📷 Photo";\n' +
+  '  }\n' +
+  '\n' +
   '  /* Pretty-print a phone in E.164 (digits only) as +<cc> <area>-<rest>. */\n' +
   '  function fmtParticipant(provider, id) {\n' +
   '    if (provider === "instagram") return "@" + id;\n' +
@@ -308,7 +336,8 @@ const HTML_PAGE =
   '          var you = document.createElement("span"); you.className = "you"; you.textContent = "You: ";\n' +
   '          prev.appendChild(you);\n' +
   '        }\n' +
-  '        var text = document.createTextNode(last.text == null ? "" : String(last.text));\n' +
+  '        var previewStr = last.media ? mediaLabel(last.media) + (last.text ? " " + last.text : "") : (last.text == null ? "" : String(last.text));\n' +
+  '        var text = document.createTextNode(previewStr);\n' +
   '        prev.appendChild(text);\n' +
   '        row.appendChild(prev);\n' +
   '      }\n' +
@@ -356,7 +385,31 @@ const HTML_PAGE =
   '    var row = document.createElement("div");\n' +
   '    row.className = "row " + (entry.direction === "out" ? "out" : "in") + (grouped ? " grouped" : "");\n' +
   '    var bubble = document.createElement("div"); bubble.className = "bubble";\n' +
-  '    bubble.textContent = entry.text == null ? "" : String(entry.text);\n' +
+  '    var src = mediaSrc(entry);\n' +
+  '    if (entry.media && src) {\n' +
+  '      var kind = entry.media.kind;\n' +
+  '      if (kind === "video" || kind === "audio") {\n' +
+  '        bubble.className += " media";\n' +
+  '        var av = document.createElement(kind); av.className = "media-el"; av.controls = true; av.preload = "metadata"; av.src = src;\n' +
+  '        bubble.appendChild(av);\n' +
+  '      } else if (kind === "document") {\n' +
+  '        bubble.className += " doc";\n' +
+  '        var icon = document.createElement("span"); icon.className = "doc-icon"; icon.textContent = "📄";\n' +
+  '        var a = document.createElement("a"); a.href = src; a.target = "_blank"; a.rel = "noopener"; a.textContent = entry.text || "Document"; a.style.color = "inherit";\n' +
+  '        bubble.appendChild(icon); bubble.appendChild(a);\n' +
+  '      } else {\n' +
+  '        bubble.className += " media";\n' +
+  '        var img = document.createElement("img"); img.className = "media-el"; img.loading = "lazy"; img.alt = kind || "image"; img.src = src;\n' +
+  '        img.addEventListener("click", function () { window.open(src, "_blank", "noopener"); });\n' +
+  '        bubble.appendChild(img);\n' +
+  '      }\n' +
+  '      if (entry.text && kind !== "document") {\n' +
+  '        var cap = document.createElement("div"); cap.className = "caption"; cap.textContent = String(entry.text);\n' +
+  '        bubble.appendChild(cap);\n' +
+  '      }\n' +
+  '    } else {\n' +
+  '      bubble.textContent = entry.text == null ? "" : String(entry.text);\n' +
+  '    }\n' +
   '    row.appendChild(bubble);\n' +
   '    if (!grouped) {\n' +
   '      var ts = document.createElement("div"); ts.className = "ts"; ts.textContent = fmtAbsTime(entry.ts);\n' +

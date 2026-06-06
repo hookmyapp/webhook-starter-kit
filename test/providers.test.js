@@ -126,3 +126,78 @@ test('instagram.getUsername throws on a non-ok response (caller treats as non-fa
     process.env = saved;
   }
 });
+
+// --- media ---------------------------------------------------------------
+
+test('whatsapp.parseInbound extracts image/video media (id + caption), skips media with no id', () => {
+  const body = { object: 'whatsapp_business_account', entry: [
+    { changes: [
+      { field: 'messages', value: { messages: [
+        { from: '15551230000', type: 'image', image: { id: 'IMG1', mime_type: 'image/jpeg', caption: 'look' } },
+        { from: '15551230000', type: 'video', video: { id: 'VID1', mime_type: 'video/mp4' } },
+        { from: '15551230000', type: 'image' }, // no payload/id → skipped
+      ] } },
+    ] },
+  ] };
+  assert.deepEqual(wa.parseInbound(body), [
+    { from: '15551230000', text: 'look', media: { kind: 'image', id: 'IMG1', mime: 'image/jpeg' } },
+    { from: '15551230000', text: null, media: { kind: 'video', id: 'VID1', mime: 'video/mp4' } },
+  ]);
+});
+
+test('whatsapp.getMediaUrl resolves the gateway-signed url + mime with the access token', async () => {
+  const saved = { ...process.env };
+  const realFetch = globalThis.fetch;
+  process.env.WHATSAPP_API_URL = 'https://gw.test/meta';
+  process.env.WHATSAPP_ACCESS_TOKEN = 'hmat_test';
+  let calledUrl = null; let auth = null;
+  globalThis.fetch = async (url, init) => {
+    calledUrl = url; auth = init?.headers?.Authorization ?? null;
+    return { ok: true, json: async () => ({ url: 'https://gw.test/media?token=zzz', mime_type: 'image/png' }) };
+  };
+  try {
+    const meta = await wa.getMediaUrl('MID123');
+    assert.equal(calledUrl, 'https://gw.test/meta/MID123');
+    assert.equal(auth, 'Bearer hmat_test');
+    assert.equal(meta.mime_type, 'image/png');
+  } finally {
+    globalThis.fetch = realFetch;
+    process.env = saved;
+  }
+});
+
+test('whatsapp.fetchMedia resolves then downloads the bytes (second hop unauthenticated)', async () => {
+  const saved = { ...process.env };
+  const realFetch = globalThis.fetch;
+  process.env.WHATSAPP_API_URL = 'https://gw.test/meta';
+  process.env.WHATSAPP_ACCESS_TOKEN = 'hmat_test';
+  const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+  globalThis.fetch = async (url) => {
+    if (url === 'https://gw.test/meta/MID123') return { ok: true, json: async () => ({ url: 'https://gw.test/media?token=zzz', mime_type: 'image/png' }) };
+    if (url === 'https://gw.test/media?token=zzz') return { ok: true, headers: { get: () => 'image/png' }, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
+    throw new Error(`unexpected url ${url}`);
+  };
+  try {
+    const { buffer, mime } = await wa.fetchMedia('MID123');
+    assert.equal(mime, 'image/png');
+    assert.deepEqual(buffer, bytes);
+  } finally {
+    globalThis.fetch = realFetch;
+    process.env = saved;
+  }
+});
+
+test('instagram.parseInbound extracts attachments (lookaside url) and text+attachment combos', () => {
+  const body = { object: 'instagram', entry: [{ messaging: [
+    { sender: { id: 'IGSID1' }, message: { mid: 'm1', attachments: [{ type: 'image', payload: { url: 'https://lookaside/img.jpg' } }] } },
+    { sender: { id: 'IGSID2' }, message: { mid: 'm2', attachments: [{ type: 'video', payload: { url: 'https://lookaside/vid.mp4' } }] } },
+    { sender: { id: 'IGSID3' }, message: { mid: 'm3', text: 'caption', attachments: [{ type: 'image', payload: { url: 'https://lookaside/c.jpg' } }] } },
+    { sender: { id: 'IGSID4' }, message: { mid: 'm4', attachments: [{ type: 'image', payload: {} }] } }, // no url → skipped
+  ] }] };
+  assert.deepEqual(ig.parseInbound(body), [
+    { from: 'IGSID1', text: null, media: { kind: 'image', url: 'https://lookaside/img.jpg' } },
+    { from: 'IGSID2', text: null, media: { kind: 'video', url: 'https://lookaside/vid.mp4' } },
+    { from: 'IGSID3', text: 'caption' },
+    { from: 'IGSID3', text: null, media: { kind: 'image', url: 'https://lookaside/c.jpg' } },
+  ]);
+});

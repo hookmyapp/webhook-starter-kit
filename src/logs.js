@@ -44,10 +44,16 @@ function computeSummary(rawBody) {
       const msg = igEvent.message;
       if (msg && typeof msg === 'object') {
         const body = typeof msg.text === 'string' ? msg.text : null;
+        // Label media attachments by type ([image]/[video]/[audio]) to match
+        // the WhatsApp branch below, instead of a generic "[ig non-text]".
+        const attType =
+          Array.isArray(msg.attachments) && typeof msg.attachments[0]?.type === 'string'
+            ? msg.attachments[0].type
+            : null;
         return {
           type: 'message',
           from: igFrom,
-          text: body ?? '[ig non-text]',
+          text: body ?? (attType ? `[${attType}]` : '[ig non-text]'),
           status: null,
           label: null,
         };
