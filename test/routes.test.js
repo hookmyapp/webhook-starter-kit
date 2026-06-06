@@ -101,3 +101,59 @@ test('POST is 401 (not 500) on a non-JSON body when verifyToken is set', async (
   s.close();
   assert.equal(res.status, 401);
 });
+
+test('GET /media/whatsapp/:id proxies bytes via the gateway resolve + download', async () => {
+  const savedFetch = globalThis.fetch;
+  const savedBase = process.env.WHATSAPP_API_URL;
+  const savedTok = process.env.WHATSAPP_ACCESS_TOKEN;
+  process.env.WHATSAPP_API_URL = 'https://gw.test/meta';
+  process.env.WHATSAPP_ACCESS_TOKEN = 'hmat_test';
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
+  globalThis.fetch = (input, init) => {
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (url === 'https://gw.test/meta/MID123') {
+      return Promise.resolve(new Response(JSON.stringify({ url: 'https://gw.test/media?token=zzz', mime_type: 'image/png' }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    }
+    if (url === 'https://gw.test/media?token=zzz') {
+      return Promise.resolve(new Response(PNG, { status: 200, headers: { 'content-type': 'image/png' } }));
+    }
+    return savedFetch(input, init); // local server request → real fetch
+  };
+  try {
+    const app = createApp({ verifyToken: null, senders: fakeSenders([]) });
+    const { s, base } = listen(app);
+    const res = await fetch(`${base}/media/whatsapp/MID123`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    s.close();
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('content-type'), 'image/png');
+    assert.deepEqual(buf, PNG);
+  } finally {
+    globalThis.fetch = savedFetch;
+    if (savedBase === undefined) delete process.env.WHATSAPP_API_URL; else process.env.WHATSAPP_API_URL = savedBase;
+    if (savedTok === undefined) delete process.env.WHATSAPP_ACCESS_TOKEN; else process.env.WHATSAPP_ACCESS_TOKEN = savedTok;
+  }
+});
+
+test('GET /media/whatsapp/:id returns 502 when the gateway lookup fails', async () => {
+  const savedFetch = globalThis.fetch;
+  const savedBase = process.env.WHATSAPP_API_URL;
+  process.env.WHATSAPP_API_URL = 'https://gw.test/meta';
+  globalThis.fetch = (input, init) => {
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (url.startsWith('https://gw.test/meta/')) {
+      return Promise.resolve(new Response(JSON.stringify({ error: { message: 'gone' } }), { status: 404, headers: { 'content-type': 'application/json' } }));
+    }
+    return savedFetch(input, init);
+  };
+  try {
+    const app = createApp({ verifyToken: null, senders: fakeSenders([]) });
+    const { s, base } = listen(app);
+    const res = await fetch(`${base}/media/whatsapp/NOPE`);
+    s.close();
+    assert.equal(res.status, 502);
+  } finally {
+    globalThis.fetch = savedFetch;
+    if (savedBase === undefined) delete process.env.WHATSAPP_API_URL; else process.env.WHATSAPP_API_URL = savedBase;
+  }
+});
