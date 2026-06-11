@@ -116,19 +116,18 @@ Note the `channel_id` (e.g. `ch_xxxxxxxx`) — you will pass it to the next thre
 ### 4. Pull production env values
 
 ```bash
-hookmyapp access-tokens create <channel>          # mint a per-connection hmat_live_... gateway access token
-hookmyapp channels env <channel> --write .env
+hookmyapp channels env <channel> --write .env     # writes the channel's hmat_live_... gateway access token
 ```
 
 `hookmyapp channels env <channel>` emits the keys needed (`WHATSAPP_*` + `HOOKMYAPP_CHANNEL_ID` + `VERIFY_TOKEN`). Credentials in your .env use the WHATSAPP_ prefix everywhere (kit, CLI, frontend download, docs). The kit code in `src/index.js` does NOT change between sandbox and production. Only these values flip.
 
-**Gateway (recommended production path):** the kit is transport-agnostic — it only swaps the base URL plus the Bearer token, so the same code runs unchanged against the sandbox, the HookMyApp gateway, or direct Meta. For the gateway, mint an access token with `hookmyapp access-tokens create <channel>` and set the base to the gateway:
+**Gateway (recommended production path):** the kit is transport-agnostic — it only swaps the base URL plus the Bearer token, so the same code runs unchanged against the sandbox, the HookMyApp gateway, or direct Meta. Every channel gets its gateway access token automatically at connect; read it with `hookmyapp channels token <channel>` (rotate with `--rotate`) and set the base to the gateway:
 
 - `META_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v22.0` — the gateway base; the kit appends `/{phone-number-id}/messages` verbatim. `channels env --write` writes this for you.
-- `WHATSAPP_ACCESS_TOKEN=hmat_live_...` — the minted gateway access token, sent as the Bearer token.
+- `WHATSAPP_ACCESS_TOKEN=hmat_live_...` — the channel's gateway access token, sent as the Bearer token.
 - `WHATSAPP_PHONE_NUMBER_ID` — the channel's phone number ID.
 
-access tokens are **per-connection**: a WhatsApp channel's access token does not authorize an Instagram connection. For Instagram production, mint a separate access token for the Instagram channel and set `INSTAGRAM_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v25.0` with its own `hmat_live_...` token.
+access tokens are **per-channel** (and scoped to that channel's phone number at the gateway): a WhatsApp channel's access token does not authorize an Instagram connection. For Instagram production, use the Instagram channel's own token and set `INSTAGRAM_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v25.0` with its own `hmat_live_...` token.
 
 **Choose exactly one transport per channel.** The kit resolves the base as `*_API_URL ?? *_GRAPH_API_URL`, so a sandbox `WHATSAPP_API_URL` / `INSTAGRAM_API_URL` WINS over the gateway `*_GRAPH_API_URL` when both are set — the kit would silently keep hitting the sandbox with the minted `hmat_` access token, which the sandbox rejects. When moving to the gateway, comment out or remove the sandbox `*_API_URL` lines. See `.env.example` for the annotated block.
 
