@@ -164,14 +164,13 @@ When you're ready to move off the sandbox and onto a real WABA, swap the `WHATSA
 
 ### Production via the HookMyApp gateway
 
-The gateway is the recommended production path. Mint a per-connection access token and point the kit's base URL at the gateway:
+The gateway is the recommended production path. Every channel gets its own gateway access token automatically at connect; just point the kit's `.env` at the gateway:
 
 ```bash
-hookmyapp access-tokens create <channel>        # mints an hmat_live_... key for that connection
-hookmyapp channels env <channel> --write .env
+hookmyapp channels env <channel> --write .env   # writes the channel's hmat_live_... key
 ```
 
-`channels env --write` writes `META_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v22.0` (the gateway base) plus the minted `hmat_live_...` token as `WHATSAPP_ACCESS_TOKEN` and the channel's `WHATSAPP_PHONE_NUMBER_ID`. The kit appends `/{phone-number-id}/messages` to that base verbatim.
+`channels env --write` writes `META_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v22.0` (the gateway base) plus the channel's `hmat_live_...` token as `WHATSAPP_ACCESS_TOKEN` and the channel's `WHATSAPP_PHONE_NUMBER_ID`. The kit appends `/{phone-number-id}/messages` to that base verbatim. To rotate a leaked key: `hookmyapp channels token <channel> --rotate`.
 
 access tokens are per-connection: a access token minted for a WhatsApp channel does not authorize an Instagram connection. For Instagram production, mint an access token for the Instagram channel and set `INSTAGRAM_GRAPH_API_URL=https://gateway.hookmyapp.com/meta/v25.0` with its own `hmat_live_...` token.
 
