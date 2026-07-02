@@ -14,6 +14,12 @@
 
 ### Changed
 
+- Signature verification now keys on `WEBHOOK_HMAC_SECRET`, falling back to
+  `VERIFY_TOKEN` when unset (a compat bridge: sandbox sessions and channels
+  created before the verify-token/HMAC split export the signing secret under
+  `VERIFY_TOKEN`). `VERIFY_TOKEN` itself is only the webhook verify-GET
+  handshake response. A missing secret now logs a boot warning instead of
+  exiting.
 - The Instagram provider reads either env-key shape: the sandbox keys
   (`INSTAGRAM_API_URL` / `INSTAGRAM_ACCOUNT_ID`) or a real channel's keys
   (`INSTAGRAM_GRAPH_API_URL` / `INSTAGRAM_USER_ID`). This mirrors the existing

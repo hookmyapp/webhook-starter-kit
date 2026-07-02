@@ -78,7 +78,7 @@ After you've connected a WhatsApp number through HookMyApp:
 
 ```bash
 hookmyapp channels list                                # find your channel ID
-hookmyapp channels env ch_xxxxxxxx --write .env        # writes WHATSAPP_* + HOOKMYAPP_CHANNEL_ID + VERIFY_TOKEN
+hookmyapp channels env ch_xxxxxxxx --write .env        # writes WHATSAPP_* + HOOKMYAPP_CHANNEL_ID + VERIFY_TOKEN + WEBHOOK_HMAC_SECRET
 ```
 
 The CLI accepts the channel's display phone number or name too:
@@ -94,7 +94,8 @@ The `.env.example` file lists the keys the server expects, but you should not ne
 
 | Variable | Description |
 |----------|-------------|
-| `VERIFY_TOKEN` | Per-session HMAC secret. Used both as the webhook-verification response body and as the HMAC-SHA256 key for verifying incoming `X-HookMyApp-Signature-256` headers. The CLI pulls this from your active sandbox session. |
+| `VERIFY_TOKEN` | Webhook-verification handshake token. Your server responds with this value as the body of the one-time verification `GET`. The CLI pulls this from your active sandbox session. |
+| `WEBHOOK_HMAC_SECRET` | Signing key for verifying incoming `X-HookMyApp-Signature-256` headers (HMAC-SHA256). Falls back to `VERIFY_TOKEN` when unset — sandbox sessions and channels created before the verify-token/HMAC split export the signing secret under that name. |
 | `PORT` | Port the webhook server listens on. Default `3000`. |
 | `WHATSAPP_API_URL` | WhatsApp Graph API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production `channels env` writes this as `META_GRAPH_API_URL`; the kit reads either. |
 | `WHATSAPP_ACCESS_TOKEN` | Sandbox activation code (CLI-provided) or Meta access token in production. |
@@ -114,7 +115,7 @@ sends message  ──────>  Cloud API  ──>  Forwarder  ────�
 
 1. A WhatsApp user sends a message to your sandbox business number.
 2. Meta's Cloud API delivers the webhook to HookMyApp's forwarder.
-3. HookMyApp signs the payload with your session `VERIFY_TOKEN` (HMAC-SHA256) and forwards it through a Cloudflare tunnel to your local server.
+3. HookMyApp signs the payload with your webhook signing secret (HMAC-SHA256) and forwards it through a Cloudflare tunnel to your local server.
 4. Your server verifies the signature and processes the message.
 
 Instagram works the same way through `POST /webhook/instagram`. The kit serves both routes at once.
@@ -127,17 +128,18 @@ When you register your own public webhook URL with `hookmyapp channels webhook s
 
 ### Signature verification
 
-Every forwarded webhook includes an `X-HookMyApp-Signature-256` header set to `sha256={hex}` where the HMAC key is your `VERIFY_TOKEN`. This kit verifies the signature on every inbound POST and rejects mismatches with `401 Unauthorized`. Always verify signatures in production. Without verification, anyone who discovers your webhook URL could POST fake payloads.
+Every forwarded webhook includes an `X-HookMyApp-Signature-256` header set to `sha256={hex}` where the HMAC key is your `WEBHOOK_HMAC_SECRET` (the kit falls back to `VERIFY_TOKEN` when it is unset — sandbox sessions and older channels export the signing secret under that name). This kit verifies the signature on every inbound POST and rejects mismatches with `401 Unauthorized`. Always verify signatures in production. Without verification, anyone who discovers your webhook URL could POST fake payloads.
 
 The core verification logic (see `src/index.js`):
 
 ```js
 import { createHmac } from 'node:crypto';
 
-function verifySignature(body, signature, verifyToken) {
+// hmacSecret = process.env.WEBHOOK_HMAC_SECRET || process.env.VERIFY_TOKEN
+function verifySignature(body, signature, hmacSecret) {
   const expected =
     'sha256=' +
-    createHmac('sha256', verifyToken)
+    createHmac('sha256', hmacSecret)
       .update(JSON.stringify(body))
       .digest('hex');
   return signature === expected;
@@ -197,7 +199,7 @@ Or with your own URL:
     hookmyapp channels webhook set <wa-channel> --url https://YOUR_HOST/webhook/whatsapp
     hookmyapp channels webhook set <ig-channel> --url https://YOUR_HOST/webhook/instagram
 
-Signature verification uses `VERIFY_TOKEN`. In production set the same verify token on both channels so both routes verify. To exercise both channels at once against the sandbox, leave `VERIFY_TOKEN` blank so verification is skipped (local dev only): two sandbox sessions have two different secrets and one token cannot verify both.
+Signature verification uses `WEBHOOK_HMAC_SECRET` (falling back to `VERIFY_TOKEN` when unset). In production set the same signing secret on both channels so both routes verify. To exercise both channels at once against the sandbox, leave the secret blank so verification is skipped (local dev only): two sandbox sessions have two different secrets and one key cannot verify both.
 
 ## Logs UI
 

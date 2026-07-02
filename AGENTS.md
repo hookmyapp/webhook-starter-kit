@@ -8,13 +8,14 @@ This kit is an **Express webhook receiver wired to `@gethookmyapp/cli`**. The CL
 
 - **What this kit is:** an Express server (`src/index.js`, `"type": "module"`, Node >= 20) on `PORT` (default `3000`) exposing per-channel routes `GET|POST /webhook/whatsapp` and `GET|POST /webhook/instagram` (Meta-style verify challenge on GET, signed inbound receiver on POST). Inbound messages are recorded to the `/chat` and `/logs` views; the kit does not reply on its own — reply logic goes in the `// CUSTOMIZE` block of `handleInbound`.
 - **What the CLI is:** `@gethookmyapp/cli` (npm, global install). It owns sandbox session lifecycle, env-key issuance, the inbound tunnel, and outbound message sending. Your code never calls the HookMyApp API directly.
-- **What env is:** the server reads exactly five keys from `.env`. These are also what `hookmyapp sandbox env --write .env` writes:
-  - `VERIFY_TOKEN` — per-session HMAC-SHA256 secret. Used both as the verify-challenge response body and as the HMAC key for `X-HookMyApp-Signature-256`.
+- **What env is:** the server reads six keys from `.env`. Five of them are what `hookmyapp sandbox env --write .env` writes (sandbox sessions export the signing secret under `VERIFY_TOKEN`, so no separate `WEBHOOK_HMAC_SECRET` is written); `hookmyapp channels env` writes all six:
+  - `VERIFY_TOKEN` — the verify-challenge response body: the value your server echoes on the one-time verification GET. Nothing more.
+  - `WEBHOOK_HMAC_SECRET` — the HMAC-SHA256 key for `X-HookMyApp-Signature-256`. Falls back to `VERIFY_TOKEN` when unset, as a compat bridge: sandbox sessions and channels created before the verify-token/HMAC split export the signing secret under `VERIFY_TOKEN`.
   - `PORT` — port the Express server listens on (defaults to `3000` if absent).
   - `META_GRAPH_API_URL` — Meta Graph API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production: `https://graph.facebook.com/v24.0` (or whatever Graph version your channel is pinned to). Renamed from `WHATSAPP_API_URL` in v2.0.0 — the name now reflects that the Graph API is Meta-level, not WhatsApp-specific.
   - `WHATSAPP_ACCESS_TOKEN` — sandbox activation code (CLI-issued) or production Meta access token.
   - `WHATSAPP_PHONE_NUMBER_ID` — sandbox session phone or production Meta phone number ID.
-- **Sandbox vs production:** sandbox is a shared HookMyApp WABA with no Meta paperwork; recipient is pinned server-side to the session phone and templates are blocked. Production is the user's own WABA via Meta embedded signup; templates work and any opted-in recipient is reachable. The five env keys above stay the same — only their values change.
+- **Sandbox vs production:** sandbox is a shared HookMyApp WABA with no Meta paperwork; recipient is pinned server-side to the session phone and templates are blocked. Production is the user's own WABA via Meta embedded signup; templates work and any opted-in recipient is reachable. The env keys above stay the same — only their values change.
 
 ## Sandbox quickstart
 
@@ -119,7 +120,7 @@ Note the `channel_id` (e.g. `ch_xxxxxxxx`) — you will pass it to the next thre
 hookmyapp channels env <channel> --write .env     # writes the channel's hmat_live_... gateway access token
 ```
 
-`hookmyapp channels env <channel>` emits the keys needed (`WHATSAPP_*` + `HOOKMYAPP_CHANNEL_ID` + `VERIFY_TOKEN`). Credentials in your .env use the WHATSAPP_ prefix everywhere (kit, CLI, frontend download, docs). The kit code in `src/index.js` does NOT change between sandbox and production. Only these values flip.
+`hookmyapp channels env <channel>` emits the keys needed (`WHATSAPP_*` + `HOOKMYAPP_CHANNEL_ID` + `VERIFY_TOKEN` + `WEBHOOK_HMAC_SECRET`). Credentials in your .env use the WHATSAPP_ prefix everywhere (kit, CLI, frontend download, docs). The kit code in `src/index.js` does NOT change between sandbox and production. Only these values flip.
 
 **Gateway (recommended production path):** the kit is transport-agnostic — it only swaps the base URL plus the Bearer token, so the same code runs unchanged against the sandbox, the HookMyApp gateway, or direct Meta. Every channel gets its gateway access token automatically at connect; read it with `hookmyapp channels token <channel>` (rotate with `--rotate`) and set the base to the gateway:
 
@@ -141,7 +142,7 @@ hookmyapp channels webhook set <channel> \
   --verify-token <your-chosen-token>
 ```
 
-Pick a strong random `VERIFY_TOKEN` (32+ chars) and pass it via `--verify-token`. This is what your server will use as the HMAC key for `X-HookMyApp-Signature-256` verification (same shape as sandbox — see Signature verification below). Omitting `--verify-token` leaves the prior token in place, which is desirable for URL-only rotation when you already have one.
+Pick a strong random verify token (32+ chars) and pass it via `--verify-token`. This is only the handshake value your server echoes on the verification GET — the HMAC key for `X-HookMyApp-Signature-256` is the separate `WEBHOOK_HMAC_SECRET` that `hookmyapp channels env` writes (see Signature verification below). Omitting `--verify-token` leaves the prior token in place, which is desirable for URL-only rotation when you already have one.
 
 > **HUMAN ACTION REQUIRED:** Confirm the URL with the human BEFORE running this. A typo silently drops inbound customer messages — the human's call, not yours.
 
@@ -178,17 +179,18 @@ Type into the bottom input and press Enter to send a message. This posts to `POS
 
 ## Signature verification
 
-Every inbound `POST /webhook/whatsapp` or `POST /webhook/instagram` from HookMyApp, in both sandbox and production, carries an `X-HookMyApp-Signature-256` header set to `sha256=<hex>` where the HMAC key is your `VERIFY_TOKEN`. HookMyApp's forwarder signs every outbound request this way; the customer-facing contract is a single shape, not two.
+Every inbound `POST /webhook/whatsapp` or `POST /webhook/instagram` from HookMyApp, in both sandbox and production, carries an `X-HookMyApp-Signature-256` header set to `sha256=<hex>` where the HMAC key is your `WEBHOOK_HMAC_SECRET` (the kit falls back to `VERIFY_TOKEN` when it is unset — a compat bridge for sandbox sessions and pre-split channels, which export the signing secret under that name). HookMyApp's forwarder signs every outbound request this way; the customer-facing contract is a single shape, not two.
 
 This kit's `src/index.js` uses the parsed-then-restringified body shape because the kit ships with `express.json()` middleware. The forwarder signs `JSON.stringify(parsedBody)` on its side, and V8's `JSON.stringify` is deterministic, so parsed+restringified on your side is byte-equivalent to raw.
 
 ```js
 import { createHmac } from 'node:crypto';
 
-function verifySignature(body, signature, verifyToken) {
+// hmacSecret = process.env.WEBHOOK_HMAC_SECRET || process.env.VERIFY_TOKEN
+function verifySignature(body, signature, hmacSecret) {
   const expected =
     'sha256=' +
-    createHmac('sha256', verifyToken).update(JSON.stringify(body)).digest('hex');
+    createHmac('sha256', hmacSecret).update(JSON.stringify(body)).digest('hex');
   return signature === expected;
 }
 ```
@@ -201,7 +203,7 @@ If you extend the kit and swap `express.json()` for `express.raw({ type: 'applic
 
 | Symptom | Fix |
 |---------|-----|
-| Server logs `VERIFY_TOKEN not set` and exits | Run `hookmyapp sandbox env --write .env`, then `npm start`. |
+| Server warns `WEBHOOK_HMAC_SECRET / VERIFY_TOKEN not set` at boot (signature verification disabled) | Run `hookmyapp sandbox env --write .env` (or `hookmyapp channels env <channel> --write .env`), then restart `npm start`. The server keeps running without a secret — that mode is local-dev only. |
 | Webhook GET returns `404` | Ensure the server is running on `PORT` and the CLI's `--path` matches a served route (`/webhook/whatsapp` or `/webhook/instagram`). |
 | `Invalid signature — rejecting webhook` 401s in logs | `.env` is stale — sandbox session rotated. Re-run `hookmyapp sandbox env --write .env` and restart `npm start`. |
 | `sandbox send` rejects recipient | Sandbox pins recipient to the session phone; no `--to` flag exists. Move to production for multi-recipient. |
