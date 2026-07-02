@@ -31,6 +31,14 @@ export function createApp(opts = {}) {
   // Use hasOwn, not ??, so an explicit `verifyToken: null` forces skip-mode
   // (the tests rely on this) instead of falling back to process.env.
   const verifyToken = Object.hasOwn(opts, 'verifyToken') ? opts.verifyToken : (process.env.VERIFY_TOKEN || null);
+  // Signing key for X-HookMyApp-Signature-256. Falls back to VERIFY_TOKEN:
+  // `hookmyapp sandbox env` exports the session signing secret under that
+  // name, and channels created before the verify-token/HMAC split carry the
+  // same value in both. New channels export a distinct WEBHOOK_HMAC_SECRET
+  // via `hookmyapp channels env`.
+  const hmacSecret = Object.hasOwn(opts, 'hmacSecret')
+    ? opts.hmacSecret
+    : (process.env.WEBHOOK_HMAC_SECRET || verifyToken);
   const senders = opts.senders ?? { whatsapp: whatsapp.send, instagram: instagram.send };
 
   const app = express();
@@ -58,9 +66,9 @@ export function createApp(opts = {}) {
 
   function verifyOk(req) {
     const signature = req.get('X-HookMyApp-Signature-256');
-    if (!verifyToken || !signature) return true; // skip when unset (spec D2 + verified auth model)
-    if (req.body === undefined || req.body === null) return false; // cannot verify a missing body when a token is required
-    const expected = 'sha256=' + createHmac('sha256', verifyToken).update(JSON.stringify(req.body)).digest('hex');
+    if (!hmacSecret || !signature) return true; // skip when unset (spec D2 + verified auth model)
+    if (req.body === undefined || req.body === null) return false; // cannot verify a missing body when a secret is required
+    const expected = 'sha256=' + createHmac('sha256', hmacSecret).update(JSON.stringify(req.body)).digest('hex');
     return signature === expected;
   }
 
@@ -116,8 +124,8 @@ export function createApp(opts = {}) {
 }
 
 // Boot warning replaces the old process.exit(1) startup guard (relaxed per spec D2).
-if (!(process.env.VERIFY_TOKEN || null)) {
-  console.warn('VERIFY_TOKEN is not set. Signature verification is DISABLED (local dev only). Run: hookmyapp sandbox env --write .env');
+if (!(process.env.WEBHOOK_HMAC_SECRET || process.env.VERIFY_TOKEN || null)) {
+  console.warn('WEBHOOK_HMAC_SECRET / VERIFY_TOKEN not set. Signature verification is DISABLED (local dev only). Run: hookmyapp sandbox env --write .env (or channels env for your own number)');
 }
 
 export const app = createApp();
