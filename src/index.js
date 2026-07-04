@@ -77,6 +77,10 @@ export function createApp(opts = {}) {
     const send = senders[providerName];
     app.get(routePath, (req, res) => res.send(verifyToken || ''));
     app.post(routePath, async (req, res) => {
+      // true = signature present and verified; undefined = nothing to verify
+      // (no secret configured or unsigned request) → /logs renders "Unsigned".
+      // Failed verification never reaches the log — it 401s right here.
+      const signatureValid = (hmacSecret && req.get('X-HookMyApp-Signature-256')) ? true : undefined;
       if (!verifyOk(req)) { console.warn('Invalid signature, rejecting webhook'); return res.sendStatus(401); }
       try {
         logBuffer.push({
@@ -88,6 +92,7 @@ export function createApp(opts = {}) {
             'user-agent': req.get('User-Agent') ?? null,
           },
           byteSize: Buffer.byteLength(JSON.stringify(req.body)), rawBody: req.body,
+          signatureValid,
         });
       } catch (err) { process.stderr.write(`logs buffer push failed (non-fatal): ${err.message}\n`); }
       for (const { from, text, media } of provider.parseInbound(req.body)) {
