@@ -6,6 +6,12 @@ import { createHmac } from 'node:crypto';
 // let index.js auto-listen before the assignment takes effect.
 process.env.NODE_ENV = 'test';
 const { createApp } = await import('../src/index.js');
+// Hermetic: importing src/index.js runs dotenv, which loads a developer's real
+// .env into process.env. Scrub the auth fallbacks AFTER the import (createApp
+// reads them lazily per call) — with a real WEBHOOK_HMAC_SECRET set, every
+// `verifyToken: 'secret'` signature test would 401.
+delete process.env.WEBHOOK_HMAC_SECRET;
+delete process.env.VERIFY_TOKEN;
 
 // Keep route tests fully offline. The inbound IG path calls
 // provider.getUsername(), which fetches `<base>/<igUserId>?fields=username`.
