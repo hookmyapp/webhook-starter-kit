@@ -24,12 +24,9 @@ export function parseInbound(reqBody) {
   return out;
 }
 
-// Bridge current and legacy env-key shapes. New output uses
-// INSTAGRAM_ACCOUNT_ID; older connected-channel env files may still have
-// INSTAGRAM_USER_ID. The kit reads either.
 export async function send(to, text) {
   const base = process.env.INSTAGRAM_API_URL ?? process.env.INSTAGRAM_GRAPH_API_URL;
-  const accountId = process.env.INSTAGRAM_ACCOUNT_ID ?? process.env.INSTAGRAM_USER_ID;
+  const accountId = process.env.INSTAGRAM_ACCOUNT_ID;
   const url = `${base}/${accountId}/messages`;
   const res = await fetch(url, {
     method: 'POST',
@@ -66,4 +63,4 @@ export async function getUsername(igUserId) {
   return typeof data.username === 'string' ? data.username : null;
 }
 
-export const selfId = () => process.env.INSTAGRAM_ACCOUNT_ID || process.env.INSTAGRAM_USER_ID || null;
+export const selfId = () => process.env.INSTAGRAM_ACCOUNT_ID || null;

@@ -20,11 +20,9 @@
   `VERIFY_TOKEN`). `VERIFY_TOKEN` itself is only the webhook verify-GET
   handshake response. A missing secret now logs a boot warning instead of
   exiting.
-- The Instagram provider reads either env-key shape: the sandbox keys
-  (`INSTAGRAM_API_URL` / `INSTAGRAM_ACCOUNT_ID`) or a real channel's keys
-  (`INSTAGRAM_GRAPH_API_URL` / `INSTAGRAM_USER_ID`). This mirrors the existing
-  WhatsApp bridge, so the kit runs against a connected Instagram channel without
-  a code change.
+- The Instagram provider reads the sandbox or real-channel base URL with
+  `INSTAGRAM_ACCOUNT_ID`, so the kit runs against a connected Instagram channel
+  without a code change.
 
 ## 2.0.0 — 2026-05-18
 

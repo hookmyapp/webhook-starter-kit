@@ -33,13 +33,12 @@ test('instagram.match keys on object === instagram', () => {
   assert.equal(ig.match({ object: 'whatsapp_business_account' }), false);
 });
 
-test('instagram.send bridges INSTAGRAM_GRAPH_API_URL + INSTAGRAM_USER_ID when sandbox keys are unset', async () => {
+test('instagram.send uses INSTAGRAM_GRAPH_API_URL + INSTAGRAM_ACCOUNT_ID when sandbox URL is unset', async () => {
   const saved = { ...process.env };
   const realFetch = globalThis.fetch;
   delete process.env.INSTAGRAM_API_URL;
-  delete process.env.INSTAGRAM_ACCOUNT_ID;
   process.env.INSTAGRAM_GRAPH_API_URL = 'https://graph.facebook.com/v24.0';
-  process.env.INSTAGRAM_USER_ID = '17841400000000000';
+  process.env.INSTAGRAM_ACCOUNT_ID = '17841400000000000';
   process.env.INSTAGRAM_ACCESS_TOKEN = 'TOK';
   let calledUrl = null;
   globalThis.fetch = async (url) => { calledUrl = url; return { ok: true, json: async () => ({}) }; };
@@ -52,10 +51,9 @@ test('instagram.send bridges INSTAGRAM_GRAPH_API_URL + INSTAGRAM_USER_ID when sa
   }
 });
 
-test('instagram.selfId bridges INSTAGRAM_USER_ID when INSTAGRAM_ACCOUNT_ID is unset', () => {
+test('instagram.selfId reads INSTAGRAM_ACCOUNT_ID', () => {
   const saved = { ...process.env };
-  delete process.env.INSTAGRAM_ACCOUNT_ID;
-  process.env.INSTAGRAM_USER_ID = '17841400000000000';
+  process.env.INSTAGRAM_ACCOUNT_ID = '17841400000000000';
   try {
     assert.equal(ig.selfId(), '17841400000000000');
   } finally {
@@ -69,7 +67,6 @@ test('instagram.send prefers INSTAGRAM_API_URL + INSTAGRAM_ACCOUNT_ID (sandbox s
   process.env.INSTAGRAM_API_URL = 'https://sandbox.hookmyapp.com/v25.0';
   process.env.INSTAGRAM_ACCOUNT_ID = 'SBX_IG';
   process.env.INSTAGRAM_GRAPH_API_URL = 'https://graph.facebook.com/v24.0';
-  process.env.INSTAGRAM_USER_ID = 'REAL_IG';
   process.env.INSTAGRAM_ACCESS_TOKEN = 'TOK';
   let calledUrl = null;
   globalThis.fetch = async (url) => { calledUrl = url; return { ok: true, json: async () => ({}) }; };
