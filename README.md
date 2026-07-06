@@ -102,7 +102,7 @@ The `.env.example` file lists the keys the server expects, but you should not ne
 | `WHATSAPP_PHONE_NUMBER_ID` | Phone number ID from your sandbox session or Meta app. |
 | `INSTAGRAM_API_URL` | Instagram Graph API base URL. Sandbox `sandbox env` writes this. A real Instagram channel's `channels env` writes it as `INSTAGRAM_GRAPH_API_URL`; the kit reads either. |
 | `INSTAGRAM_ACCESS_TOKEN` | Sandbox activation code (CLI-provided) or Meta access token for Instagram. |
-| `INSTAGRAM_ACCOUNT_ID` | Instagram account ID the kit sends from. Older connected-channel env files may have `INSTAGRAM_USER_ID`; the kit reads either. |
+| `INSTAGRAM_ACCOUNT_ID` | Instagram account ID the kit sends from. |
 
 ## How it works
 
