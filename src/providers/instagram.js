@@ -24,10 +24,9 @@ export function parseInbound(reqBody) {
   return out;
 }
 
-// Bridge the two env-key shapes the same way whatsapp.js does. A sandbox
-// session writes INSTAGRAM_API_URL / INSTAGRAM_ACCOUNT_ID; a real connected
-// channel writes INSTAGRAM_GRAPH_API_URL / INSTAGRAM_USER_ID. The kit reads
-// either, so the same code runs against the sandbox and production unchanged.
+// Bridge current and legacy env-key shapes. New output uses
+// INSTAGRAM_ACCOUNT_ID; older connected-channel env files may still have
+// INSTAGRAM_USER_ID. The kit reads either.
 export async function send(to, text) {
   const base = process.env.INSTAGRAM_API_URL ?? process.env.INSTAGRAM_GRAPH_API_URL;
   const accountId = process.env.INSTAGRAM_ACCOUNT_ID ?? process.env.INSTAGRAM_USER_ID;
