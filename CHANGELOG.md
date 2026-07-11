@@ -1,6 +1,18 @@
 # Changelog
 
-## [Unreleased]
+## 3.0.0 — 2026-07-11
+
+### Breaking
+
+- Signature verification no longer falls back to `VERIFY_TOKEN` when
+  `WEBHOOK_HMAC_SECRET` is unset. The compat bridge existed for sandbox
+  sessions and pre-split channels that exported the signing secret under
+  `VERIFY_TOKEN`; the CLI has exported `WEBHOOK_HMAC_SECRET` from both
+  `sandbox env` and `channels env` since @gethookmyapp/cli 0.12.x. If your
+  `.env` predates that, re-pull it: `hookmyapp sandbox env --write .env`
+  (or `channels env` for your own number). `VERIFY_TOKEN` keeps its one
+  remaining role: the body your server echoes on the one-time webhook
+  verification `GET`.
 
 ### Added
 
