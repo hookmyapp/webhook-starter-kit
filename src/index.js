@@ -28,17 +28,16 @@ export async function handleInbound(message, ctx) {
 }
 
 export function createApp(opts = {}) {
-  // Use hasOwn, not ??, so an explicit `verifyToken: null` forces skip-mode
-  // (the tests rely on this) instead of falling back to process.env.
+  // Use hasOwn, not ??, so an explicit `verifyToken: null` forces an empty
+  // verify-GET echo (the tests rely on this) instead of falling back to
+  // process.env. VERIFY_TOKEN is ONLY the verify-GET handshake body.
   const verifyToken = Object.hasOwn(opts, 'verifyToken') ? opts.verifyToken : (process.env.VERIFY_TOKEN || null);
-  // Signing key for X-HookMyApp-Signature-256. Falls back to VERIFY_TOKEN:
-  // `hookmyapp sandbox env` exports the session signing secret under that
-  // name, and channels created before the verify-token/HMAC split carry the
-  // same value in both. New channels export a distinct WEBHOOK_HMAC_SECRET
-  // via `hookmyapp channels env`.
+  // Signing key for X-HookMyApp-Signature-256. v3 (breaking): no VERIFY_TOKEN
+  // fallback — the CLI exports the signing secret as WEBHOOK_HMAC_SECRET from
+  // both `hookmyapp sandbox env` and `hookmyapp channels env`.
   const hmacSecret = Object.hasOwn(opts, 'hmacSecret')
     ? opts.hmacSecret
-    : (process.env.WEBHOOK_HMAC_SECRET || verifyToken);
+    : (process.env.WEBHOOK_HMAC_SECRET || null);
   const senders = opts.senders ?? { whatsapp: whatsapp.send, instagram: instagram.send };
 
   const app = express();
@@ -129,8 +128,8 @@ export function createApp(opts = {}) {
 }
 
 // Boot warning replaces the old process.exit(1) startup guard (relaxed per spec D2).
-if (!(process.env.WEBHOOK_HMAC_SECRET || process.env.VERIFY_TOKEN || null)) {
-  console.warn('WEBHOOK_HMAC_SECRET / VERIFY_TOKEN not set. Signature verification is DISABLED (local dev only). Run: hookmyapp sandbox env --write .env (or channels env for your own number)');
+if (!process.env.WEBHOOK_HMAC_SECRET) {
+  console.warn('WEBHOOK_HMAC_SECRET not set. Signature verification is DISABLED (local dev only). v3 no longer falls back to VERIFY_TOKEN. Run: hookmyapp sandbox env --write .env (or channels env for your own number)');
 }
 
 export const app = createApp();
