@@ -8,9 +8,9 @@ This kit is an **Express webhook receiver wired to `@gethookmyapp/cli`**. The CL
 
 - **What this kit is:** an Express server (`src/index.js`, `"type": "module"`, Node >= 20) on `PORT` (default `3000`) exposing per-channel routes `GET|POST /webhook/whatsapp` and `GET|POST /webhook/instagram` (Meta-style verify challenge on GET, signed inbound receiver on POST). Inbound messages are recorded to the `/chat` and `/logs` views; the kit does not reply on its own — reply logic goes in the `// CUSTOMIZE` block of `handleInbound`.
 - **What the CLI is:** `@gethookmyapp/cli` (npm, global install). It owns sandbox session lifecycle, env-key issuance, the inbound tunnel, and outbound message sending. Your code never calls the HookMyApp API directly.
-- **What env is:** the server reads six keys from `.env`. Five of them are what `hookmyapp sandbox env --write .env` writes (sandbox sessions export the signing secret under `VERIFY_TOKEN`, so no separate `WEBHOOK_HMAC_SECRET` is written); `hookmyapp channels env` writes all six:
-  - `VERIFY_TOKEN` — the verify-challenge response body: the value your server echoes on the one-time verification GET. Nothing more.
-  - `WEBHOOK_HMAC_SECRET` — the HMAC-SHA256 key for `X-HookMyApp-Signature-256`. Falls back to `VERIFY_TOKEN` when unset, as a compat bridge: sandbox sessions and channels created before the verify-token/HMAC split export the signing secret under `VERIFY_TOKEN`.
+- **What env is:** the server reads six keys from `.env`. Five of them are what `hookmyapp sandbox env --write .env` writes; `hookmyapp channels env` writes all six:
+  - `VERIFY_TOKEN` — the verify-challenge response body: the value your server echoes on the one-time verification GET. Nothing more. Written only by `channels env` (the sandbox tunnel never issues that GET).
+  - `WEBHOOK_HMAC_SECRET` — the HMAC-SHA256 key for `X-HookMyApp-Signature-256`. Written by both `sandbox env` and `channels env`. As of v3 there is NO `VERIFY_TOKEN` fallback.
   - `PORT` — port the Express server listens on (defaults to `3000` if absent).
   - `META_GRAPH_API_URL` — Meta Graph API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production: `https://graph.facebook.com/v24.0` (or whatever Graph version your channel is pinned to). Renamed from `WHATSAPP_API_URL` in v2.0.0 — the name now reflects that the Graph API is Meta-level, not WhatsApp-specific.
   - `WHATSAPP_ACCESS_TOKEN` — sandbox activation code (CLI-issued) or production Meta access token.
@@ -59,7 +59,7 @@ What this does: installs `express` and `dotenv` (declared in `package.json`).
 hookmyapp sandbox env --write .env
 ```
 
-What this does: writes the five sandbox keys (`VERIFY_TOKEN`, `PORT`, `META_GRAPH_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`) into `.env` — the same keys listed in `.env.example`. The CLI is the source of truth; do not hand-edit values it produces.
+What this does: writes the five sandbox keys (`WEBHOOK_HMAC_SECRET`, `PORT`, `WHATSAPP_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`) into `.env` — the same keys listed in `.env.example`. The CLI is the source of truth; do not hand-edit values it produces.
 
 ### 5. Start the server
 
@@ -179,14 +179,14 @@ Type into the bottom input and press Enter to send a message. This posts to `POS
 
 ## Signature verification
 
-Every inbound `POST /webhook/whatsapp` or `POST /webhook/instagram` from HookMyApp, in both sandbox and production, carries an `X-HookMyApp-Signature-256` header set to `sha256=<hex>` where the HMAC key is your `WEBHOOK_HMAC_SECRET` (the kit falls back to `VERIFY_TOKEN` when it is unset — a compat bridge for sandbox sessions and pre-split channels, which export the signing secret under that name). HookMyApp's forwarder signs every outbound request this way; the customer-facing contract is a single shape, not two.
+Every inbound `POST /webhook/whatsapp` or `POST /webhook/instagram` from HookMyApp, in both sandbox and production, carries an `X-HookMyApp-Signature-256` header set to `sha256=<hex>` where the HMAC key is your `WEBHOOK_HMAC_SECRET`. As of v3 there is no `VERIFY_TOKEN` fallback. HookMyApp's forwarder signs every outbound request this way; the customer-facing contract is a single shape, not two.
 
 This kit's `src/index.js` uses the parsed-then-restringified body shape because the kit ships with `express.json()` middleware. The forwarder signs `JSON.stringify(parsedBody)` on its side, and V8's `JSON.stringify` is deterministic, so parsed+restringified on your side is byte-equivalent to raw.
 
 ```js
 import { createHmac } from 'node:crypto';
 
-// hmacSecret = process.env.WEBHOOK_HMAC_SECRET || process.env.VERIFY_TOKEN
+// hmacSecret = process.env.WEBHOOK_HMAC_SECRET
 function verifySignature(body, signature, hmacSecret) {
   const expected =
     'sha256=' +
@@ -197,13 +197,13 @@ function verifySignature(body, signature, hmacSecret) {
 
 If you extend the kit and swap `express.json()` for `express.raw({ type: 'application/json' })`, update `.update(JSON.stringify(body))` to `.update(rawBody)` — the signature still matches because the forwarder sent the same bytes. What you must NOT do is mix the two (e.g., keep `express.json()` but hash the stringified representation of a manually re-encoded object with different whitespace) — that will break verification.
 
-> **Note:** Earlier versions of this guide and the HookMyApp skill mentioned a separate `X-Hub-Signature-256` path keyed on Meta's `APP_SECRET` for production. That path does **not** exist on the customer-facing interface — the forwarder verifies Meta's signature internally and re-signs with your `VERIFY_TOKEN` before forwarding. Do not wire an `APP_SECRET` verification branch on your server.
+> **Note:** Earlier versions of this guide and the HookMyApp skill mentioned a separate `X-Hub-Signature-256` path keyed on Meta's `APP_SECRET` for production. That path does **not** exist on the customer-facing interface — the forwarder verifies Meta's signature internally and re-signs with your `WEBHOOK_HMAC_SECRET` before forwarding. Do not wire an `APP_SECRET` verification branch on your server.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
-| Server warns `WEBHOOK_HMAC_SECRET / VERIFY_TOKEN not set` at boot (signature verification disabled) | Run `hookmyapp sandbox env --write .env` (or `hookmyapp channels env <channel> --write .env`), then restart `npm start`. The server keeps running without a secret — that mode is local-dev only. |
+| Server warns `WEBHOOK_HMAC_SECRET not set` at boot (signature verification disabled) | Run `hookmyapp sandbox env --write .env` (or `hookmyapp channels env <channel> --write .env`), then restart `npm start`. A `.env` from before v3 that only carries `VERIFY_TOKEN` no longer feeds signature verification — re-pull env with the CLI. The server keeps running without a secret — that mode is local-dev only. |
 | Webhook GET returns `404` | Ensure the server is running on `PORT` and the CLI's `--path` matches a served route (`/webhook/whatsapp` or `/webhook/instagram`). |
 | `Invalid signature — rejecting webhook` 401s in logs | `.env` is stale — sandbox session rotated. Re-run `hookmyapp sandbox env --write .env` and restart `npm start`. |
 | `sandbox send` rejects recipient | Sandbox pins recipient to the session phone; no `--to` flag exists. Move to production for multi-recipient. |

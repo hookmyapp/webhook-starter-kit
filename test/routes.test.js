@@ -9,7 +9,7 @@ const { createApp } = await import('../src/index.js');
 // Hermetic: importing src/index.js runs dotenv, which loads a developer's real
 // .env into process.env. Scrub the auth fallbacks AFTER the import (createApp
 // reads them lazily per call) — with a real WEBHOOK_HMAC_SECRET set, every
-// `verifyToken: 'secret'` signature test would 401.
+// `hmacSecret: 'secret'` signature test would 401.
 delete process.env.WEBHOOK_HMAC_SECRET;
 delete process.env.VERIFY_TOKEN;
 
@@ -71,7 +71,7 @@ test('POST /webhook/whatsapp accepts a WA webhook and does not auto-reply', asyn
   assert.equal(calls.length, 0);
 });
 
-test('POST is accepted unsigned when verifyToken is unset (skip path)', async () => {
+test('POST is accepted unsigned when no signing secret is set (skip path)', async () => {
   const app = createApp({ verifyToken: null, senders: fakeSenders([]) });
   const { s, base } = listen(app);
   const res = await post(base, '/webhook/instagram', IG_BODY);
@@ -79,16 +79,16 @@ test('POST is accepted unsigned when verifyToken is unset (skip path)', async ()
   assert.equal(res.status, 200);
 });
 
-test('POST is 401 on signature mismatch when verifyToken is set', async () => {
-  const app = createApp({ verifyToken: 'secret', senders: fakeSenders([]) });
+test('POST is 401 on signature mismatch when hmacSecret is set', async () => {
+  const app = createApp({ hmacSecret: 'secret', senders: fakeSenders([]) });
   const { s, base } = listen(app);
   const res = await post(base, '/webhook/instagram', IG_BODY, { 'X-HookMyApp-Signature-256': 'sha256=deadbeef' });
   s.close();
   assert.equal(res.status, 401);
 });
 
-test('POST accepts a correct signature when verifyToken is set', async () => {
-  const app = createApp({ verifyToken: 'secret', senders: fakeSenders([]) });
+test('POST accepts a correct signature when hmacSecret is set', async () => {
+  const app = createApp({ hmacSecret: 'secret', senders: fakeSenders([]) });
   const { s, base } = listen(app);
   const sig = 'sha256=' + createHmac('sha256', 'secret').update(JSON.stringify(IG_BODY)).digest('hex');
   const res = await post(base, '/webhook/instagram', IG_BODY, { 'X-HookMyApp-Signature-256': sig });
@@ -96,8 +96,8 @@ test('POST accepts a correct signature when verifyToken is set', async () => {
   assert.equal(res.status, 200);
 });
 
-test('POST is 401 (not 500) on a non-JSON body when verifyToken is set', async () => {
-  const app = createApp({ verifyToken: 'secret', senders: fakeSenders([]) });
+test('POST is 401 (not 500) on a non-JSON body when hmacSecret is set', async () => {
+  const app = createApp({ hmacSecret: 'secret', senders: fakeSenders([]) });
   const { s, base } = listen(app);
   const res = await fetch(`${base}/webhook/whatsapp`, {
     method: 'POST',
