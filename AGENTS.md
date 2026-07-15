@@ -8,8 +8,8 @@ This kit is an **Express webhook receiver wired to `@gethookmyapp/cli`**. The CL
 
 - **What this kit is:** an Express server (`src/index.js`, `"type": "module"`, Node >= 20) on `PORT` (default `3000`) exposing per-channel routes `GET|POST /webhook/whatsapp` and `GET|POST /webhook/instagram` (Meta-style verify challenge on GET, signed inbound receiver on POST). Inbound messages are recorded to the `/chat` and `/logs` views; the kit does not reply on its own — reply logic goes in the `// CUSTOMIZE` block of `handleInbound`.
 - **What the CLI is:** `@gethookmyapp/cli` (npm, global install). It owns sandbox session lifecycle, env-key issuance, the inbound tunnel, and outbound message sending. Your code never calls the HookMyApp API directly.
-- **What env is:** the server reads six keys from `.env`. Five of them are what `hookmyapp sandbox env --write .env` writes; `hookmyapp channels env` writes all six:
-  - `VERIFY_TOKEN` — the verify-challenge response body: the value your server echoes on the one-time verification GET. Nothing more. Written only by `channels env` (the sandbox tunnel never issues that GET).
+- **What env is:** the server reads six keys from `.env`, written by both `hookmyapp sandbox env --write .env` and `hookmyapp channels env`:
+  - `VERIFY_TOKEN` — the verify-challenge response body: the value your server echoes on the one-time verification GET. Nothing more. Written by both `sandbox env` and `channels env`; `sandbox webhook set` / `channels webhook set` run that GET against your URL.
   - `WEBHOOK_HMAC_SECRET` — the HMAC-SHA256 key for `X-HookMyApp-Signature-256`. Written by both `sandbox env` and `channels env`. As of v3 there is NO `VERIFY_TOKEN` fallback.
   - `PORT` — port the Express server listens on (defaults to `3000` if absent).
   - `META_GRAPH_API_URL` — Meta Graph API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production: `https://graph.facebook.com/v24.0` (or whatever Graph version your channel is pinned to). Renamed from `WHATSAPP_API_URL` in v2.0.0 — the name now reflects that the Graph API is Meta-level, not WhatsApp-specific.
@@ -59,7 +59,7 @@ What this does: installs `express` and `dotenv` (declared in `package.json`).
 hookmyapp sandbox env --write .env
 ```
 
-What this does: writes the five sandbox keys (`WEBHOOK_HMAC_SECRET`, `PORT`, `WHATSAPP_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`) into `.env` — the same keys listed in `.env.example`. The CLI is the source of truth; do not hand-edit values it produces.
+What this does: writes the six sandbox keys (`WEBHOOK_HMAC_SECRET`, `VERIFY_TOKEN`, `PORT`, `WHATSAPP_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`) into `.env` — the same keys listed in `.env.example`. The CLI is the source of truth; do not hand-edit values it produces.
 
 ### 5. Start the server
 

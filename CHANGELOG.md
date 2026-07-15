@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Docs only: `hookmyapp sandbox env` now writes `VERIFY_TOKEN` (CLI + backend AIT-179), and `sandbox webhook set` runs the verify-GET handshake against it — the "sandbox never issues that GET / does not write VERIFY_TOKEN" claims in README, AGENTS.md, and `.env.example` are corrected. No kit code changes; the GET handler already echoed `VERIFY_TOKEN`.
+
 ## 3.0.0 — 2026-07-11
 
 ### Breaking

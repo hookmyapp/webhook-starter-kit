@@ -46,7 +46,7 @@ The HookMyApp CLI owns your sandbox session lifecycle: starting the tunnel, issu
    hookmyapp sandbox env --write .env
    ```
 
-   (For a WhatsApp session the CLI writes `WEBHOOK_HMAC_SECRET`, `PORT`, `WHATSAPP_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`. For an Instagram session it writes the `INSTAGRAM_*` keys instead. See `.env.example` for both blocks.)
+   (For a WhatsApp session the CLI writes `WEBHOOK_HMAC_SECRET`, `VERIFY_TOKEN`, `PORT`, `WHATSAPP_API_URL`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`. For an Instagram session it writes the `INSTAGRAM_*` keys instead. See `.env.example` for both blocks.)
 
 6. Start the server:
 
@@ -94,7 +94,7 @@ The `.env.example` file lists the keys the server expects, but you should not ne
 
 | Variable | Description |
 |----------|-------------|
-| `VERIFY_TOKEN` | Webhook-verification handshake token. Your server responds with this value as the body of the one-time verification `GET`. Written by `hookmyapp channels env` for your own webhook URL; the sandbox tunnel never issues that `GET`, so `sandbox env` does not write it. |
+| `VERIFY_TOKEN` | Webhook-verification handshake token. Your server responds with this value as the body of the one-time verification `GET`. Written by both `sandbox env` and `channels env`; `sandbox webhook set` and `channels webhook set` run that `GET` against your URL. Distinct from `WEBHOOK_HMAC_SECRET`. |
 | `WEBHOOK_HMAC_SECRET` | Signing key for verifying incoming `X-HookMyApp-Signature-256` headers (HMAC-SHA256). Written by both `sandbox env` and `channels env`. As of v3 there is no `VERIFY_TOKEN` fallback. |
 | `PORT` | Port the webhook server listens on. Default `3000`. |
 | `WHATSAPP_API_URL` | WhatsApp Graph API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production `channels env` writes this as `META_GRAPH_API_URL`; the kit reads either. |
@@ -124,7 +124,7 @@ The payload arrives in the **original Meta format**. HookMyApp does not transfor
 
 ### Verification challenge
 
-When you register your own public webhook URL with `hookmyapp channels webhook set <channel> --url ...`, HookMyApp sends a one-time `GET /webhook/whatsapp` (or `/webhook/instagram`) to that URL. Your server must respond with `VERIFY_TOKEN` as the entire response body. This kit handles that automatically in `src/index.js`. The sandbox `listen` tunnel does not issue this GET; it only forwards live POSTs from the forwarder to your local routes.
+When you register your own public webhook URL with `hookmyapp channels webhook set <channel> --url ...` or `hookmyapp sandbox webhook set --url ...`, HookMyApp sends a one-time `GET /webhook/whatsapp` (or `/webhook/instagram`) to that URL. Your server must respond with `VERIFY_TOKEN` as the entire response body. This kit handles that automatically in `src/index.js`. The sandbox `listen` tunnel does not issue this GET; it only forwards live POSTs from the forwarder to your local routes.
 
 ### Signature verification
 
