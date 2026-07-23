@@ -24,6 +24,40 @@ export function parseInbound(reqBody) {
   return out;
 }
 
+// Comments arrive separately from the messaging events above, and Meta's
+// current examples emit TWO payload shapes: entry[].changes[] (self-comment
+// example) and a flat entry[].field/value (ordinary-comment example, which may
+// omit from.id). Normalize both, and treat from.id / parent_id as optional.
+// We drop the account's own replies so outbound replies don't echo back into
+// the inbox: match by selfId AND by INSTAGRAM_USERNAME — comment webhooks can
+// report the account under a different id than the token's account id, so
+// id-matching alone misses our own echoes.
+export function parseComments(reqBody) {
+  const out = [];
+  const self = selfId();
+  const selfUser = (process.env.INSTAGRAM_USERNAME || '').toLowerCase();
+  for (const e of reqBody?.entry ?? []) {
+    const events = [...(e.changes ?? [])];
+    if (e.field && e.value) events.push({ field: e.field, value: e.value });
+    for (const ch of events) {
+      if (ch.field !== 'comments') continue;
+      const v = ch.value ?? {};
+      if (!v.id) continue;
+      if (self && v.from?.id && String(v.from.id) === String(self)) continue;
+      if (selfUser && (v.from?.username || '').toLowerCase() === selfUser) continue;
+      out.push({
+        commentId: v.id,
+        text: v.text ?? '',
+        from: v.from?.id ?? null,
+        username: v.from?.username ?? null,
+        mediaId: v.media?.id ?? null,
+        parentId: v.parent_id ?? null,
+      });
+    }
+  }
+  return out;
+}
+
 export async function send(to, text) {
   const base = process.env.INSTAGRAM_API_URL ?? process.env.INSTAGRAM_GRAPH_API_URL;
   const accountId = process.env.INSTAGRAM_ACCOUNT_ID;
