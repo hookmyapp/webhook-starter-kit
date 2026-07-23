@@ -258,3 +258,108 @@ test('getInsights skips a genuinely unavailable metric but keeps the rest', asyn
     assert.deepEqual(out.metrics.map((m) => m.name), ['reach', 'total_interactions', 'accounts_engaged']);
   } finally { globalThis.fetch = realFetch; process.env = saved; }
 });
+
+// --- /comments module ----------------------------------------------------
+// import declarations are hoisted, so appending them mid-file is fine.
+import { createCommentBuffer, mountComments } from '../src/comments.js';
+
+test('createCommentBuffer caps entries and notifies subscribers', () => {
+  const buf = createCommentBuffer({ cap: 2 });
+  const seen = [];
+  buf.subscribe((e) => seen.push(e.commentId));
+  buf.push({ commentId: 'a' });
+  buf.push({ commentId: 'b' });
+  buf.push({ commentId: 'c' });
+  assert.deepEqual(buf.entries().map((e) => e.commentId), ['b', 'c']);
+  assert.deepEqual(seen, ['a', 'b', 'c']);
+});
+
+test('POST /comments/reply trims text server-side and 400s when empty after trim', async () => {
+  const appx = express();
+  appx.use(express.json());
+  const calls = [];
+  const buf = createCommentBuffer();
+  mountComments(appx, buf, { reply: async (id, text) => { calls.push([id, text]); } });
+  const { s, base } = listen(appx);
+  const blank = await post(base, '/comments/reply', { commentId: 'c-1', text: '   ' });
+  const ok = await post(base, '/comments/reply', { commentId: 'c-1', text: '  hi  ' });
+  s.close();
+  assert.equal(blank.status, 400);
+  assert.equal(ok.status, 200);
+  assert.deepEqual(calls, [['c-1', 'hi']]);
+  assert.deepEqual(buf.entries().map((e) => [e.direction, e.text]), [['out', 'hi']]);
+});
+
+test('POST /comments/reply surfaces provider failures as 502 with the sanitized message', async () => {
+  const appx = express();
+  appx.use(express.json());
+  mountComments(appx, createCommentBuffer(), { reply: async () => { throw new Error('Instagram comment reply error 403: nope (code 10)'); } });
+  const { s, base } = listen(appx);
+  const res = await post(base, '/comments/reply', { commentId: 'c-1', text: 'x' });
+  const j = await res.json();
+  s.close();
+  assert.equal(res.status, 502);
+  assert.deepEqual(j, { status: 'error', error: 'Instagram comment reply error 403: nope (code 10)' });
+});
+
+// --- /publish module -----------------------------------------------------
+import { mountPublish } from '../src/publish.js';
+
+test('POST /publish/post validates imageUrl (https only) and returns id + permalink', async () => {
+  const appx = express();
+  appx.use(express.json());
+  const calls = [];
+  mountPublish(appx, { publish: async (url, caption) => { calls.push([url, caption]); return { id: 'M1', permalink: 'https://www.instagram.com/p/x/' }; } });
+  const { s, base } = listen(appx);
+  const missing = await post(base, '/publish/post', { caption: 'no url' });
+  const notHttps = await post(base, '/publish/post', { imageUrl: 'ftp://x/a.jpg', caption: '' });
+  const ok = await post(base, '/publish/post', { imageUrl: 'https://img.test/a.jpg', caption: 'hello' });
+  const j = await ok.json();
+  s.close();
+  assert.equal(missing.status, 400);
+  assert.equal(notHttps.status, 400);
+  assert.equal(ok.status, 200);
+  assert.deepEqual(j, { status: 'ok', id: 'M1', permalink: 'https://www.instagram.com/p/x/' });
+  assert.deepEqual(calls, [['https://img.test/a.jpg', 'hello']]);
+});
+
+test('POST /publish/post returns 502 when the provider publish fails', async () => {
+  const appx = express();
+  appx.use(express.json());
+  mountPublish(appx, { publish: async () => { throw new Error('media container create error 400: bad image (code 100)'); } });
+  const { s, base } = listen(appx);
+  const res = await post(base, '/publish/post', { imageUrl: 'https://img.test/a.jpg' });
+  const j = await res.json();
+  s.close();
+  assert.equal(res.status, 502);
+  assert.equal(j.status, 'error');
+  assert.match(j.error, /media container create error 400/);
+});
+
+// --- /insights module ----------------------------------------------------
+import { mountInsights } from '../src/insights.js';
+
+test('GET /insights serves the page and GET /insights/data returns provider data', async () => {
+  const appx = express();
+  const data = { followers: 5, posts: 2, metrics: [{ name: 'reach', value: 9 }] };
+  mountInsights(appx, { insights: async () => data });
+  const { s, base } = listen(appx);
+  const page = await fetch(`${base}/insights`);
+  const res = await fetch(`${base}/insights/data`);
+  const j = await res.json();
+  s.close();
+  assert.equal(page.status, 200);
+  assert.equal(res.status, 200);
+  assert.deepEqual(j, { status: 'ok', data });
+});
+
+test('GET /insights/data 502s with the sanitized provider message on failure', async () => {
+  const appx = express();
+  mountInsights(appx, { insights: async () => { throw new Error('Instagram insights profile error 401: bad token (code 190)'); } });
+  const { s, base } = listen(appx);
+  const res = await fetch(`${base}/insights/data`);
+  const j = await res.json();
+  s.close();
+  assert.equal(res.status, 502);
+  assert.deepEqual(j, { status: 'error', error: 'Instagram insights profile error 401: bad token (code 190)' });
+});
