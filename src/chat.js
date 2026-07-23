@@ -191,6 +191,9 @@ const HTML_PAGE =
   '  <div class="brand"><span class="wordmark">HookMyApp Starter Kit</span></div>\n' +
   '  <nav class="tabs" aria-label="Sections">\n' +
   '    <a href="/chat" class="active" aria-current="page">Chat</a>\n' +
+  '    <a href="/comments">Comments</a>\n' +
+  '    <a href="/publish">Publish</a>\n' +
+  '    <a href="/insights">Insights</a>\n' +
   '    <a href="/logs">Logs</a>\n' +
   '  </nav>\n' +
   '  <div class="right-controls">\n' +

@@ -363,3 +363,81 @@ test('GET /insights/data 502s with the sanitized provider message on failure', a
   assert.equal(res.status, 502);
   assert.deepEqual(j, { status: 'error', error: 'Instagram insights profile error 401: bad token (code 190)' });
 });
+
+// --- index.js wiring -----------------------------------------------------
+
+const CHANGES_COMMENT_BODY = { object: 'instagram', entry: [{ id: 'ACCT', time: 1, changes: [
+  { field: 'comments', value: { id: 'c-w1', text: 'first!', from: { id: 'F1', username: 'fan_one' }, media: { id: 'm-1' } } },
+] }] };
+const FLAT_COMMENT_BODY = { object: 'instagram', entry: [{ id: 'ACCT', time: 2, field: 'comments',
+  value: { id: 'c-w2', text: 'me too', from: { username: 'fan_two' }, media: { id: 'm-2' }, parent_id: 'c-w1' } }] };
+
+async function readBootstrap(base) {
+  const res = await fetch(`${base}/comments/stream`);
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  while (!/event: bootstrap\ndata: .*\n\n/.test(buf)) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+  }
+  await reader.cancel();
+  return JSON.parse(buf.match(/event: bootstrap\ndata: (.*)\n/)[1]);
+}
+
+test('POST /webhook/instagram routes comment events (both shapes) into the /comments stream', async () => {
+  const saved = { ...process.env };
+  delete process.env.INSTAGRAM_ACCOUNT_ID;
+  delete process.env.INSTAGRAM_USERNAME;
+  try {
+    const app = createApp({ verifyToken: null, senders: fakeSenders([]) });
+    const { s, base } = listen(app);
+    assert.equal((await post(base, '/webhook/instagram', CHANGES_COMMENT_BODY)).status, 200);
+    assert.equal((await post(base, '/webhook/instagram', FLAT_COMMENT_BODY)).status, 200);
+    const rows = await readBootstrap(base);
+    s.close();
+    s.closeAllConnections?.();
+    assert.deepEqual(rows.map((r) => [r.direction, r.commentId, r.username]), [
+      ['in', 'c-w1', 'fan_one'],
+      ['in', 'c-w2', 'fan_two'],
+    ]);
+  } finally { process.env = saved; }
+});
+
+test('POST /comments/reply hits {base}/{commentId}/replies and records the outbound entry', async () => {
+  const saved = { ...process.env };
+  const realFetch = globalThis.fetch;
+  process.env.INSTAGRAM_API_URL = 'https://sandbox.hookmyapp.com/v25.0';
+  process.env.INSTAGRAM_ACCESS_TOKEN = 'TOK';
+  let repliesUrl = null;
+  globalThis.fetch = (input, init) => {
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (url.includes('/replies')) {
+      repliesUrl = url;
+      return Promise.resolve(new Response(JSON.stringify({ id: 'r-1' }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    }
+    return realFetch(input, init); // local server request → real fetch
+  };
+  try {
+    const app = createApp({ verifyToken: null, senders: fakeSenders([]) });
+    const { s, base } = listen(app);
+    const res = await post(base, '/comments/reply', { commentId: 'c-9', text: 'thanks!' });
+    const j = await res.json();
+    const rows = await readBootstrap(base);
+    s.close();
+    s.closeAllConnections?.();
+    assert.equal(res.status, 200);
+    assert.deepEqual(j, { status: 'ok' });
+    assert.equal(repliesUrl, 'https://sandbox.hookmyapp.com/v25.0/c-9/replies');
+    assert.deepEqual(rows.map((r) => [r.direction, r.commentId, r.text]), [['out', 'c-9', 'thanks!']]);
+  } finally { globalThis.fetch = realFetch; process.env = saved; }
+});
+
+test('POST /comments/reply 400s when commentId or text is missing', async () => {
+  const app = createApp({ verifyToken: null, senders: fakeSenders([]) });
+  const { s, base } = listen(app);
+  const res = await post(base, '/comments/reply', { text: 'no id' });
+  s.close();
+  assert.equal(res.status, 400);
+});

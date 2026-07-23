@@ -3,6 +3,9 @@ import 'dotenv/config';
 import { createHmac } from 'node:crypto';
 import { createLogBuffer, mountLogs } from './logs.js';
 import { createChatBuffer, mountChat } from './chat.js';
+import { createCommentBuffer, mountComments } from './comments.js';
+import { mountPublish } from './publish.js';
+import { mountInsights } from './insights.js';
 import * as whatsapp from './providers/whatsapp.js';
 import * as instagram from './providers/instagram.js';
 
@@ -48,6 +51,10 @@ export function createApp(opts = {}) {
   mountLogs(app, logBuffer);
   const chatBuffer = createChatBuffer({ capPerPhone: 100 });
   mountChat(app, chatBuffer, { senders });
+  const commentBuffer = createCommentBuffer();
+  mountComments(app, commentBuffer, { reply: instagram.replyToComment });
+  mountPublish(app, { publish: instagram.publishPhoto });
+  mountInsights(app, { insights: instagram.getInsights });
 
   // Best-effort IG username resolution for /chat labels. Cached per-app so we
   // do not re-fetch on every inbound from the same sender. Non-fatal: a failed
@@ -100,6 +107,14 @@ export function createApp(opts = {}) {
           { from, text, media, provider: providerName, username },
           { send, chatPush: (e) => chatBuffer.push(e), selfId: provider.selfId() },
         );
+      }
+      // Instagram comments arrive separately from the messaging events above —
+      // as entry[].changes[] (field 'comments') or a flat entry[].field/value.
+      // Record each for the /comments inbox.
+      if (typeof provider.parseComments === 'function') {
+        for (const c of provider.parseComments(req.body)) {
+          commentBuffer.push({ direction: 'in', ...c, ts: new Date().toISOString() });
+        }
       }
       res.json({ status: 'ok' });
     });
