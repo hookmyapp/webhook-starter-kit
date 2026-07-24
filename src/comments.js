@@ -46,6 +46,7 @@ const HTML_PAGE =
   'nav.tabs a { padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--text-tertiary); text-decoration: none; border-radius: 6px; transition: color 120ms, background 120ms; }\n' +
   'nav.tabs a:hover { color: var(--text-primary); }\n' +
   'nav.tabs a.active { color: var(--text-primary); background: var(--surface-2); }\n' +
+  '@media (max-width: 640px) { header.bar { flex-wrap: wrap; height: auto; padding: 8px 12px; } nav.tabs { overflow-x: auto; max-width: 100%; } }\n' +
   '.right-controls { margin-left: auto; display: flex; align-items: center; gap: 12px; }\n' +
   '.conn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-tertiary); }\n' +
   '.conn .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-tertiary); }\n' +

@@ -26,6 +26,7 @@ const HTML_PAGE =
   'nav.tabs a { padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--text-tertiary); text-decoration: none; border-radius: 6px; }\n' +
   'nav.tabs a:hover { color: var(--text-primary); }\n' +
   'nav.tabs a.active { color: var(--text-primary); background: var(--surface-2); }\n' +
+  '@media (max-width: 640px) { header.bar { flex-wrap: wrap; height: auto; padding: 8px 12px; } nav.tabs { overflow-x: auto; max-width: 100%; } }\n' +
   '.wrap { max-width: 480px; margin: 0 auto; padding: 30px 20px 60px; }\n' +
   '.card { background: var(--panel); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 18px; }\n' +
   '.preview { width: 100%; aspect-ratio: 1/1; border-radius: 12px; object-fit: cover; display: none; background: var(--surface); }\n' +
@@ -106,6 +107,19 @@ const HTML_PAGE =
   '})();\n' +
   '</script>\n</body>\n</html>\n';
 
+// Meta fetches the image server-side, so the URL must be genuinely public:
+// https, a real hostname, and not a loopback/private-range literal (those
+// would silently fail inside Meta anyway — reject them up front).
+function isPublicHttpsUrl(value) {
+  let u;
+  try { u = new URL(value); } catch { return false; }
+  if (u.protocol !== 'https:' || !u.hostname) return false;
+  const h = u.hostname.toLowerCase();
+  if (h === 'localhost' || h === '[::1]' || h.endsWith('.local')) return false;
+  if (/^(127|10)\./.test(h) || /^192\.168\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^169\.254\./.test(h)) return false;
+  return true;
+}
+
 export function mountPublish(app, deps = {}) {
   const publish = deps.publish;
 
@@ -119,7 +133,7 @@ export function mountPublish(app, deps = {}) {
     const caption = typeof req.body?.caption === 'string' ? req.body.caption : '';
     const imageUrl = typeof req.body?.imageUrl === 'string' ? req.body.imageUrl.trim() : '';
     if (typeof publish !== 'function') return res.status(400).json({ status: 'error', error: 'publish not configured' });
-    if (!/^https:\/\//.test(imageUrl)) return res.status(400).json({ status: 'error', error: 'imageUrl must be a public https:// URL Meta can fetch' });
+    if (!isPublicHttpsUrl(imageUrl)) return res.status(400).json({ status: 'error', error: 'imageUrl must be a public https:// URL Meta can fetch' });
     try {
       const out = await publish(imageUrl, caption);
       res.json({ status: 'ok', id: out.id, permalink: out.permalink });

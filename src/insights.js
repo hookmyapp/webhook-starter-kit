@@ -25,6 +25,7 @@ const HTML_PAGE =
   'nav.tabs a { padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--text-tertiary); text-decoration: none; border-radius: 6px; }\n' +
   'nav.tabs a:hover { color: var(--text-primary); }\n' +
   'nav.tabs a.active { color: var(--text-primary); background: var(--surface-2); }\n' +
+  '@media (max-width: 640px) { header.bar { flex-wrap: wrap; height: auto; padding: 8px 12px; } nav.tabs { overflow-x: auto; max-width: 100%; } }\n' +
   '.wrap { max-width: 680px; margin: 0 auto; padding: 26px 20px 60px; }\n' +
   '.head-row { display: flex; align-items: baseline; gap: 12px; margin: 2px 2px 16px; }\n' +
   '.col-head { font-size: 11px; font-weight: 500; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; }\n' +

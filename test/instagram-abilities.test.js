@@ -441,3 +441,19 @@ test('POST /comments/reply 400s when commentId or text is missing', async () => 
   s.close();
   assert.equal(res.status, 400);
 });
+
+test('POST /publish/post rejects localhost, private-range, and hostless HTTPS URLs', async () => {
+  const appx = express();
+  appx.use(express.json());
+  const calls = [];
+  mountPublish(appx, { publish: async (url) => { calls.push(url); return { id: 'M1', permalink: null }; } });
+  const { s, base } = listen(appx);
+  const bad = ['https://localhost/a.jpg', 'https://127.0.0.1/a.jpg', 'https://192.168.1.10/a.jpg', 'https://172.20.0.5/a.jpg', 'https://', 'https://[::1]/a.jpg'];
+  const statuses = [];
+  for (const u of bad) statuses.push((await post(base, '/publish/post', { imageUrl: u })).status);
+  const ok = await post(base, '/publish/post', { imageUrl: 'https://img.example.com/a.jpg' });
+  s.close();
+  assert.deepEqual(statuses, [400, 400, 400, 400, 400, 400]);
+  assert.equal(ok.status, 200);
+  assert.deepEqual(calls, ['https://img.example.com/a.jpg']);
+});
