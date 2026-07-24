@@ -220,7 +220,9 @@ Three Instagram-only pages, powered by the `manage_comments`, `content_publish`,
 
 - **`/comments`** — live inbox of comments on the connected account's posts (both Meta webhook payload shapes are handled), with an inline reply box per comment. Replies post to `POST /{comment-id}/replies` via `replyToComment` in `src/providers/instagram.js`. Requires the `comments` webhook field to be subscribed on the channel.
 - **`/publish`** — publish a photo post: paste a public HTTPS image URL Meta can fetch, add a caption, and the kit runs the Content Publishing flow (container create → status poll → publish) via `publishPhoto`, then links the new post's permalink.
-- **`/insights`** — account analytics panel: follower/post counters plus day-level reach, views, interactions, and engaged accounts via `getInsights`. Metrics unavailable on the account are skipped instead of failing the panel.
+- **`/insights`** — account analytics panel: follower/post counters plus day-level reach, views, interactions, and engaged accounts via `getInsights`. Metrics genuinely unavailable on the account (Meta error code 10) are skipped; other failures surface as errors.
+
+These pages act with the server's Instagram token, so they are **local-only by default**: requests from loopback pass, everything else gets a 403. To use them on a deployed host, set `ADMIN_TOKEN` in the env and send `Authorization: Bearer <token>` (the HMAC check protects only `/webhook/*`).
 
 All three use the same env as sending (`INSTAGRAM_API_URL`/`INSTAGRAM_GRAPH_API_URL`, `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_ACCOUNT_ID`). One caveat for channels connected before these abilities shipped: the new permissions and the `comments` webhook field require a re-consent — reconnect the channel through HookMyApp and allow the webhook subscription to converge before comment events start arriving.
 
