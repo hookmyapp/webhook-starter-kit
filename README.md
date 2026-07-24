@@ -224,7 +224,7 @@ Three Instagram-only pages, powered by the `manage_comments`, `content_publish`,
 
 These pages act with the server's Instagram token, so they are **gated**: with no `ADMIN_TOKEN` set, only loopback requests pass (bare local dev). Once you set `ADMIN_TOKEN`, every request — loopback included, since reverse proxies and tunnels arrive as loopback — needs `Authorization: Bearer <token>`; the first authorized request sets an HttpOnly cookie so the pages' own live-stream and form requests keep working. The HMAC check protects only `/webhook/*`, so set `ADMIN_TOKEN` on any deployed host.
 
-All three use the same env as sending (`INSTAGRAM_API_URL`/`INSTAGRAM_GRAPH_API_URL`, `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_ACCOUNT_ID`). One caveat for channels connected before these abilities shipped: the new permissions and the `comments` webhook field require a re-consent — reconnect the channel through HookMyApp and allow the webhook subscription to converge before comment events start arriving.
+All three use the same env as sending (`INSTAGRAM_API_URL`/`INSTAGRAM_GRAPH_API_URL`, `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_ACCOUNT_ID`). If the channel was connected before these abilities were available, reconnect it through HookMyApp once; comment events start arriving shortly after.
 
 ## Quickstart
 
