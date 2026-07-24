@@ -71,6 +71,11 @@ function metaErrorText(body) {
 // Reply to a comment: POST {base}/{comment-id}/replies. Same auth shape as
 // send(); the reply posts as a threaded reply under the original comment.
 export async function replyToComment(commentId, text) {
+  // Defense in depth with the route check: never let a non-numeric id reach
+  // the authenticated Graph URL (it could rewrite the path/query).
+  if (!/^\d+$/.test(String(commentId))) {
+    throw new Error('commentId must be a numeric Meta id');
+  }
   const base = process.env.INSTAGRAM_API_URL ?? process.env.INSTAGRAM_GRAPH_API_URL;
   const res = await fetch(`${base}/${commentId}/replies`, {
     method: 'POST',
@@ -159,13 +164,18 @@ export async function getInsights() {
 
   const metrics = [];
   for (const m of ['reach', 'views', 'total_interactions', 'accounts_engaged']) {
-    try {
-      const r = await fetch(`${base}/${accountId}/insights?metric=${m}&period=day&metric_type=total_value`, { headers: auth });
-      if (!r.ok) continue; // metric unavailable on this account — skip, keep the rest
-      const j = await r.json();
-      const d = j?.data?.[0];
-      if (d) metrics.push({ name: m, value: d?.total_value?.value ?? 0 });
-    } catch { /* one metric failing must not sink the panel — skip */ }
+    const r = await fetch(`${base}/${accountId}/insights?metric=${m}&period=day&metric_type=total_value`, { headers: auth });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      // Meta code 10 = metric genuinely unavailable on this account (privacy
+      // floor / new account) — skip it, keep the rest. Every OTHER failure
+      // (auth, rate limit, outage) must surface, not masquerade as "no data".
+      if (err?.error?.code === 10) continue;
+      throw new Error(`Instagram insights metric error ${r.status}: ${metaErrorText(err)}`);
+    }
+    const j = await r.json().catch(() => null);
+    const d = j?.data?.[0];
+    if (d) metrics.push({ name: m, value: d?.total_value?.value ?? 0 });
   }
 
   return {

@@ -8,7 +8,7 @@ import * as ig from '../src/providers/instagram.js';
 // `import` is hoisted and evaluated before this module's body runs, so it would
 // let index.js auto-listen before the assignment takes effect.
 process.env.NODE_ENV = 'test';
-const { createApp } = await import('../src/index.js');
+const { createApp, adminOnly } = await import('../src/index.js');
 // Hermetic: importing src/index.js runs dotenv, which loads a developer's real
 // .env into process.env. Scrub the auth + Instagram keys AFTER the import so a
 // real .env cannot leak into signature checks or self-echo filtering.
@@ -86,8 +86,8 @@ test('replyToComment posts {message} to {base}/{commentId}/replies with the bear
   let calledUrl = null; let init = null;
   globalThis.fetch = async (url, i) => { calledUrl = url; init = i; return { ok: true, json: async () => ({ id: 'r-1' }) }; };
   try {
-    const out = await ig.replyToComment('c-9', 'thanks!');
-    assert.equal(calledUrl, 'https://sandbox.hookmyapp.com/v25.0/c-9/replies');
+    const out = await ig.replyToComment('900900', 'thanks!');
+    assert.equal(calledUrl, 'https://sandbox.hookmyapp.com/v25.0/900900/replies');
     assert.equal(init.headers.Authorization, 'Bearer TOK');
     assert.deepEqual(JSON.parse(init.body), { message: 'thanks!' });
     assert.deepEqual(out, { id: 'r-1' });
@@ -101,7 +101,7 @@ test('replyToComment throws on a non-ok response', async () => {
   process.env.INSTAGRAM_ACCESS_TOKEN = 'TOK';
   globalThis.fetch = async () => ({ ok: false, status: 403, json: async () => ({ error: { message: 'nope', code: 10, error_subcode: 12345, fbtrace_id: 'RAW-TRACE' } }) });
   try {
-    await assert.rejects(() => ig.replyToComment('c-9', 'x'), (err) => {
+    await assert.rejects(() => ig.replyToComment('900900', 'x'), (err) => {
       // Sanitized contract: Meta's error.message + code only — no raw response JSON.
       assert.match(err.message, /Instagram comment reply error 403: nope \(code 10\)/);
       assert.ok(!err.message.includes('RAW-TRACE'));
@@ -243,19 +243,34 @@ test('getInsights throws when the profile request fails (auth/config errors are 
   } finally { globalThis.fetch = realFetch; process.env = saved; }
 });
 
-test('getInsights skips a genuinely unavailable metric but keeps the rest', async () => {
+test('getInsights skips a genuinely unavailable metric (Meta code 10) but keeps the rest', async () => {
   const saved = { ...process.env };
   const realFetch = globalThis.fetch;
   publishEnv();
   globalThis.fetch = async (url) => {
     if (url === `${B}/ACCT?fields=followers_count,media_count`) return { ok: true, json: async () => ({ followers_count: 1, media_count: 0 }) };
-    if (url.includes('metric=views')) return { ok: false, status: 400, json: async () => ({ error: { message: 'unsupported metric', code: 100 } }) };
+    if (url.includes('metric=views')) return { ok: false, status: 400, json: async () => ({ error: { message: 'Not enough viewers', code: 10 } }) };
     if (url.includes('/ACCT/insights?metric=')) return { ok: true, json: async () => ({ data: [{ total_value: { value: 2 } }] }) };
     throw new Error(`unexpected url ${url}`);
   };
   try {
     const out = await ig.getInsights();
     assert.deepEqual(out.metrics.map((m) => m.name), ['reach', 'total_interactions', 'accounts_engaged']);
+  } finally { globalThis.fetch = realFetch; process.env = saved; }
+});
+
+test('getInsights throws when a metric fails for a non-code-10 reason (rate limit / auth must not masquerade as no-data)', async () => {
+  const saved = { ...process.env };
+  const realFetch = globalThis.fetch;
+  publishEnv();
+  globalThis.fetch = async (url) => {
+    if (url === `${B}/ACCT?fields=followers_count,media_count`) return { ok: true, json: async () => ({ followers_count: 1, media_count: 0 }) };
+    if (url.includes('metric=views')) return { ok: false, status: 429, json: async () => ({ error: { message: 'rate limited', code: 4 } }) };
+    if (url.includes('/ACCT/insights?metric=')) return { ok: true, json: async () => ({ data: [{ total_value: { value: 2 } }] }) };
+    throw new Error(`unexpected url ${url}`);
+  };
+  try {
+    await assert.rejects(() => ig.getInsights(), /Instagram insights metric error 429: rate limited \(code 4\)/);
   } finally { globalThis.fetch = realFetch; process.env = saved; }
 });
 
@@ -281,13 +296,25 @@ test('POST /comments/reply trims text server-side and 400s when empty after trim
   const buf = createCommentBuffer();
   mountComments(appx, buf, { reply: async (id, text) => { calls.push([id, text]); } });
   const { s, base } = listen(appx);
-  const blank = await post(base, '/comments/reply', { commentId: 'c-1', text: '   ' });
-  const ok = await post(base, '/comments/reply', { commentId: 'c-1', text: '  hi  ' });
+  const blank = await post(base, '/comments/reply', { commentId: '900100', text: '   ' });
+  const ok = await post(base, '/comments/reply', { commentId: '900100', text: '  hi  ' });
   s.close();
   assert.equal(blank.status, 400);
   assert.equal(ok.status, 200);
-  assert.deepEqual(calls, [['c-1', 'hi']]);
+  assert.deepEqual(calls, [['900100', 'hi']]);
   assert.deepEqual(buf.entries().map((e) => [e.direction, e.text]), [['out', 'hi']]);
+});
+
+test('POST /comments/reply 400s on a non-numeric commentId without calling the provider', async () => {
+  const appx = express();
+  appx.use(express.json());
+  const calls = [];
+  mountComments(appx, createCommentBuffer(), { reply: async (id, text) => { calls.push([id, text]); } });
+  const { s, base } = listen(appx);
+  const res = await post(base, '/comments/reply', { commentId: '18000/../evil?x=1', text: 'hi' });
+  s.close();
+  assert.equal(res.status, 400);
+  assert.deepEqual(calls, []);
 });
 
 test('POST /comments/reply surfaces provider failures as 502 with the sanitized message', async () => {
@@ -295,7 +322,7 @@ test('POST /comments/reply surfaces provider failures as 502 with the sanitized 
   appx.use(express.json());
   mountComments(appx, createCommentBuffer(), { reply: async () => { throw new Error('Instagram comment reply error 403: nope (code 10)'); } });
   const { s, base } = listen(appx);
-  const res = await post(base, '/comments/reply', { commentId: 'c-1', text: 'x' });
+  const res = await post(base, '/comments/reply', { commentId: '900100', text: 'x' });
   const j = await res.json();
   s.close();
   assert.equal(res.status, 502);
@@ -422,15 +449,15 @@ test('POST /comments/reply hits {base}/{commentId}/replies and records the outbo
   try {
     const app = createApp({ verifyToken: null, senders: fakeSenders([]) });
     const { s, base } = listen(app);
-    const res = await post(base, '/comments/reply', { commentId: 'c-9', text: 'thanks!' });
+    const res = await post(base, '/comments/reply', { commentId: '900900', text: 'thanks!' });
     const j = await res.json();
     const rows = await readBootstrap(base);
     s.close();
     s.closeAllConnections?.();
     assert.equal(res.status, 200);
     assert.deepEqual(j, { status: 'ok' });
-    assert.equal(repliesUrl, 'https://sandbox.hookmyapp.com/v25.0/c-9/replies');
-    assert.deepEqual(rows.map((r) => [r.direction, r.commentId, r.text]), [['out', 'c-9', 'thanks!']]);
+    assert.equal(repliesUrl, 'https://sandbox.hookmyapp.com/v25.0/900900/replies');
+    assert.deepEqual(rows.map((r) => [r.direction, r.commentId, r.text]), [['out', '900900', 'thanks!']]);
   } finally { globalThis.fetch = realFetch; process.env = saved; }
 });
 
@@ -456,4 +483,42 @@ test('POST /publish/post rejects localhost, private-range, and hostless HTTPS UR
   assert.deepEqual(statuses, [400, 400, 400, 400, 400, 400]);
   assert.equal(ok.status, 200);
   assert.deepEqual(calls, ['https://img.example.com/a.jpg']);
+});
+
+// --- adminOnly gate -------------------------------------------------------
+
+function fakeReqRes({ addr, auth } = {}) {
+  let statusCode = null; let jsonBody = null; let nexted = false;
+  const req = { socket: { remoteAddress: addr }, headers: auth ? { authorization: auth } : {} };
+  const res = { status(c) { statusCode = c; return this; }, json(b) { jsonBody = b; return this; } };
+  return { req, res, next: () => { nexted = true; }, get: () => ({ statusCode, jsonBody, nexted }) };
+}
+
+test('adminOnly passes loopback requests through', () => {
+  for (const addr of ['127.0.0.1', '::1', '::ffff:127.0.0.1']) {
+    const t = fakeReqRes({ addr });
+    adminOnly(t.req, t.res, t.next);
+    assert.equal(t.get().nexted, true, addr);
+  }
+});
+
+test('adminOnly 403s remote requests unless ADMIN_TOKEN matches', () => {
+  const saved = process.env.ADMIN_TOKEN;
+  try {
+    delete process.env.ADMIN_TOKEN;
+    const noToken = fakeReqRes({ addr: '203.0.113.9' });
+    adminOnly(noToken.req, noToken.res, noToken.next);
+    assert.equal(noToken.get().statusCode, 403);
+
+    process.env.ADMIN_TOKEN = 'sekrit';
+    const wrong = fakeReqRes({ addr: '203.0.113.9', auth: 'Bearer nope' });
+    adminOnly(wrong.req, wrong.res, wrong.next);
+    assert.equal(wrong.get().statusCode, 403);
+
+    const right = fakeReqRes({ addr: '203.0.113.9', auth: 'Bearer sekrit' });
+    adminOnly(right.req, right.res, right.next);
+    assert.equal(right.get().nexted, true);
+  } finally {
+    if (saved === undefined) delete process.env.ADMIN_TOKEN; else process.env.ADMIN_TOKEN = saved;
+  }
 });

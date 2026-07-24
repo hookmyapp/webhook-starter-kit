@@ -11,6 +11,21 @@ import * as instagram from './providers/instagram.js';
 
 const PROVIDERS = { whatsapp, instagram };
 
+// Gate for the Instagram admin pages (/comments, /publish, /insights): they
+// use the server's Instagram token, so when the app is exposed publicly for
+// webhooks these routes must not be open to the world. Loopback requests
+// (local dev, tests) always pass; remote access needs ADMIN_TOKEN.
+export function adminOnly(req, res, next) {
+  const addr = req.socket?.remoteAddress ?? '';
+  if (addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1') return next();
+  const token = process.env.ADMIN_TOKEN;
+  if (token && req.headers.authorization === `Bearer ${token}`) return next();
+  return res.status(403).json({
+    status: 'error',
+    error: 'admin pages are local-only; set ADMIN_TOKEN and send Authorization: Bearer <token> for remote access',
+  });
+}
+
 // Normalized inbound handler. ctx carries injectable side-effects so it is
 // unit-testable and so WhatsApp/Instagram share one inbound flow.
 //
@@ -51,6 +66,11 @@ export function createApp(opts = {}) {
   mountLogs(app, logBuffer);
   const chatBuffer = createChatBuffer({ capPerPhone: 100 });
   mountChat(app, chatBuffer, { senders });
+  // The comments/publish/insights pages act with the server's Instagram token,
+  // so on a public host they must not be world-reachable (only /webhook/* is
+  // HMAC-verified). Local browsing stays frictionless: loopback requests pass;
+  // anything else needs `Authorization: Bearer $ADMIN_TOKEN`.
+  app.use(['/comments', '/publish', '/insights'], adminOnly);
   const commentBuffer = createCommentBuffer();
   mountComments(app, commentBuffer, { reply: instagram.replyToComment });
   mountPublish(app, { publish: instagram.publishPhoto });

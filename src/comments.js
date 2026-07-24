@@ -206,6 +206,9 @@ export function mountComments(app, buffer, deps = {}) {
     // Trim server-side too — the page trims, but the endpoint is callable directly.
     const text = typeof body.text === 'string' ? body.text.trim() : null;
     if (!commentId || !text) return res.status(400).json({ status: 'error', error: 'commentId and non-empty text are required' });
+    // Meta comment ids are numeric Graph object ids. Anything else (slashes,
+    // dots, query chars) could rewrite the authenticated Graph URL path.
+    if (!/^\d+$/.test(commentId)) return res.status(400).json({ status: 'error', error: 'commentId must be a numeric Meta id' });
     if (typeof reply !== 'function') return res.status(400).json({ status: 'error', error: 'comment reply not configured' });
     try {
       await reply(commentId, text);
