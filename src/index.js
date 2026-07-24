@@ -13,13 +13,30 @@ const PROVIDERS = { whatsapp, instagram };
 
 // Gate for the Instagram admin pages (/comments, /publish, /insights): they
 // use the server's Instagram token, so when the app is exposed publicly for
-// webhooks these routes must not be open to the world. Loopback requests
-// (local dev, tests) always pass; remote access needs ADMIN_TOKEN.
+// webhooks these routes must not be open to the world.
+//
+// When ADMIN_TOKEN is set it is ALWAYS required — including for loopback
+// requests, because a reverse proxy or tunnel on the same host makes external
+// traffic arrive with a loopback remoteAddress. The loopback shortcut only
+// applies when no token is configured (bare local dev). A valid bearer also
+// sets an HttpOnly cookie so the pages' own EventSource/fetch subrequests
+// (which cannot send Authorization headers) stay authorized.
 export function adminOnly(req, res, next) {
+  const token = process.env.ADMIN_TOKEN;
+  if (token) {
+    const cookiePair = (req.headers.cookie ?? '').split(/;\s*/).find((c) => c.startsWith('admin_token='));
+    const fromCookie = cookiePair ? decodeURIComponent(cookiePair.slice('admin_token='.length)) : null;
+    if (req.headers.authorization === `Bearer ${token}` || fromCookie === token) {
+      res.setHeader('Set-Cookie', `admin_token=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/`);
+      return next();
+    }
+    return res.status(403).json({
+      status: 'error',
+      error: 'admin pages require Authorization: Bearer <ADMIN_TOKEN>',
+    });
+  }
   const addr = req.socket?.remoteAddress ?? '';
   if (addr === '127.0.0.1' || addr === '::1' || addr === '::ffff:127.0.0.1') return next();
-  const token = process.env.ADMIN_TOKEN;
-  if (token && req.headers.authorization === `Bearer ${token}`) return next();
   return res.status(403).json({
     status: 'error',
     error: 'admin pages are local-only; set ADMIN_TOKEN and send Authorization: Bearer <token> for remote access',

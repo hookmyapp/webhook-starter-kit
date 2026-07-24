@@ -487,11 +487,18 @@ test('POST /publish/post rejects localhost, private-range, and hostless HTTPS UR
 
 // --- adminOnly gate -------------------------------------------------------
 
-function fakeReqRes({ addr, auth } = {}) {
-  let statusCode = null; let jsonBody = null; let nexted = false;
-  const req = { socket: { remoteAddress: addr }, headers: auth ? { authorization: auth } : {} };
-  const res = { status(c) { statusCode = c; return this; }, json(b) { jsonBody = b; return this; } };
-  return { req, res, next: () => { nexted = true; }, get: () => ({ statusCode, jsonBody, nexted }) };
+function fakeReqRes({ addr, auth, cookie } = {}) {
+  let statusCode = null; let jsonBody = null; let nexted = false; let setCookie = null;
+  const headers = {};
+  if (auth) headers.authorization = auth;
+  if (cookie) headers.cookie = cookie;
+  const req = { socket: { remoteAddress: addr }, headers };
+  const res = {
+    status(c) { statusCode = c; return this; },
+    json(b) { jsonBody = b; return this; },
+    setHeader(name, value) { if (name === 'Set-Cookie') setCookie = value; },
+  };
+  return { req, res, next: () => { nexted = true; }, get: () => ({ statusCode, jsonBody, nexted, cookie: setCookie }) };
 }
 
 test('adminOnly passes loopback requests through', () => {
@@ -502,7 +509,7 @@ test('adminOnly passes loopback requests through', () => {
   }
 });
 
-test('adminOnly 403s remote requests unless ADMIN_TOKEN matches', () => {
+test('adminOnly requires the token whenever ADMIN_TOKEN is set — loopback included (reverse proxies arrive as loopback)', () => {
   const saved = process.env.ADMIN_TOKEN;
   try {
     delete process.env.ADMIN_TOKEN;
@@ -515,9 +522,20 @@ test('adminOnly 403s remote requests unless ADMIN_TOKEN matches', () => {
     adminOnly(wrong.req, wrong.res, wrong.next);
     assert.equal(wrong.get().statusCode, 403);
 
+    // Loopback no longer bypasses once a token is configured.
+    const proxied = fakeReqRes({ addr: '127.0.0.1' });
+    adminOnly(proxied.req, proxied.res, proxied.next);
+    assert.equal(proxied.get().statusCode, 403);
+
     const right = fakeReqRes({ addr: '203.0.113.9', auth: 'Bearer sekrit' });
     adminOnly(right.req, right.res, right.next);
     assert.equal(right.get().nexted, true);
+    assert.match(right.get().cookie ?? '', /admin_token=sekrit; HttpOnly/);
+
+    // Subrequests (EventSource/fetch) carry the cookie instead of a header.
+    const viaCookie = fakeReqRes({ addr: '203.0.113.9', cookie: 'admin_token=sekrit' });
+    adminOnly(viaCookie.req, viaCookie.res, viaCookie.next);
+    assert.equal(viaCookie.get().nexted, true);
   } finally {
     if (saved === undefined) delete process.env.ADMIN_TOKEN; else process.env.ADMIN_TOKEN = saved;
   }
