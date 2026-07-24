@@ -103,6 +103,7 @@ The `.env.example` file lists the keys the server expects, but you should not ne
 | `INSTAGRAM_API_URL` | Instagram Graph API base URL. Sandbox `sandbox env` writes this. A real Instagram channel's `channels env` writes it as `INSTAGRAM_GRAPH_API_URL`; the kit reads either. |
 | `INSTAGRAM_ACCESS_TOKEN` | Sandbox activation code (CLI-provided) or Meta access token for Instagram. |
 | `INSTAGRAM_ACCOUNT_ID` | Instagram account ID the kit sends from. |
+| `INSTAGRAM_USERNAME` | Optional. The connected account's @username. Used by `/comments` to filter out the account's own reply echoes (comment webhooks can report the account under a different id than `INSTAGRAM_ACCOUNT_ID`). |
 
 ## How it works
 
@@ -212,6 +213,18 @@ While the server is running, visit `http://localhost:3000/chat` (or whatever `PO
 An All / WhatsApp / Instagram filter at the top of the sidebar narrows the conversation list to one channel. Instagram threads are labeled by the sender's `@username` when the kit can resolve it (it falls back to the raw Instagram-scoped id otherwise). WhatsApp threads are labeled by the formatted phone number.
 
 Type into the bottom input and press Enter to send a message. This posts to `POST /chat/send`, which dispatches to the selected channel's `send` helper. The view mirrors the styling and server-sent events (SSE) retry behavior of the `/logs` surface.
+
+## Instagram: /comments, /publish, /insights
+
+Three Instagram-only pages, powered by the `manage_comments`, `content_publish`, and `manage_insights` permissions of the connected account:
+
+- **`/comments`** — live inbox of comments on the connected account's posts (both Meta webhook payload shapes are handled), with an inline reply box per comment. Replies post to `POST /{comment-id}/replies` via `replyToComment` in `src/providers/instagram.js`. Requires the `comments` webhook field to be subscribed on the channel.
+- **`/publish`** — publish a photo post: paste a public HTTPS image URL Meta can fetch, add a caption, and the kit runs the Content Publishing flow (container create → status poll → publish) via `publishPhoto`, then links the new post's permalink.
+- **`/insights`** — account analytics panel: follower/post counters plus day-level reach, views, interactions, and engaged accounts via `getInsights`. Metrics genuinely unavailable on the account (Meta error code 10) are skipped; other failures surface as errors.
+
+These pages act with the server's Instagram token, so they are **gated**: with no `ADMIN_TOKEN` set, only loopback requests pass (bare local dev). Once you set `ADMIN_TOKEN`, every request — loopback included, since reverse proxies and tunnels arrive as loopback — needs `Authorization: Bearer <token>`; the first authorized request sets an HttpOnly cookie so the pages' own live-stream and form requests keep working. The HMAC check protects only `/webhook/*`, so set `ADMIN_TOKEN` on any deployed host.
+
+All three use the same env as sending (`INSTAGRAM_API_URL`/`INSTAGRAM_GRAPH_API_URL`, `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_ACCOUNT_ID`). One caveat for channels connected before these abilities shipped: the new permissions and the `comments` webhook field require a re-consent — reconnect the channel through HookMyApp and allow the webhook subscription to converge before comment events start arriving.
 
 ## Quickstart
 
