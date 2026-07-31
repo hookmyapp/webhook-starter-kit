@@ -1,10 +1,19 @@
 # Changelog
 
-## Unreleased
+## 3.0.1 — 2026-07-31
+
+### Added
+
+- Instagram `/comments`, `/publish`, and `/insights` pages with authenticated
+  management routes, comment replies, photo publishing, and account insights.
+- Instagram webhook handling and tests for the new publishing, comments, and
+  insights flows.
 
 ### Changed
 
 - Docs only: `hookmyapp sandbox env` now writes `VERIFY_TOKEN` (CLI + backend AIT-179), and `sandbox webhook set` runs the verify-GET handshake against it — the "sandbox never issues that GET / does not write VERIFY_TOKEN" claims in README, AGENTS.md, and `.env.example` are corrected. No kit code changes; the GET handler already echoed `VERIFY_TOKEN`.
+- Customer guidance now describes reconnecting as a product action without
+  exposing Meta permission mechanics.
 
 ## 3.0.0 — 2026-07-11
 
