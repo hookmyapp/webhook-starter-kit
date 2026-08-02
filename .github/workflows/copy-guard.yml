@@ -8,14 +8,27 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   banned-copy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Ban retired copy in the kit
         run: |
-          HITS=$(grep -rn -i -E '\bBSPs?\b|passthrough|activation code' README.md AGENTS.md .env.example src/ || true)
+          set -uo pipefail
+          status=0
+          HITS=$(grep -rn -i -E '\bBSPs?\b|passthrough|activation code' README.md AGENTS.md .env.example src/) || status=$?
+          # grep exits 1 for "no match" and >1 for a real error. Without this the
+          # `|| true` idiom fails OPEN and passes on a scan that never ran.
+          if [ "$status" -gt 1 ]; then
+            echo "FAIL: grep exited $status — the scan did not run, refusing to pass"
+            exit 1
+          fi
           if [ -n "$HITS" ]; then
             echo "FAIL: retired copy found in the starter kit:"
             echo "$HITS"

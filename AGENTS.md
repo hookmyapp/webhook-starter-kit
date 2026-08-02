@@ -13,7 +13,7 @@ This kit is an **Express webhook receiver wired to `@gethookmyapp/cli`**. The CL
   - `WEBHOOK_HMAC_SECRET` — the HMAC-SHA256 key for `X-HookMyApp-Signature-256`. Written by both `sandbox env` and `channels env`. As of v3 there is NO `VERIFY_TOKEN` fallback.
   - `PORT` — port the Express server listens on (defaults to `3000` if absent).
   - `META_GRAPH_API_URL` — Meta Graph API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production: `https://graph.facebook.com/v24.0` (or whatever Graph version your channel is pinned to). Renamed from `WHATSAPP_API_URL` in v2.0.0 — the name now reflects that the Graph API is Meta-level, not WhatsApp-specific.
-  - `WHATSAPP_ACCESS_TOKEN` — gateway channel token (`hmat_`), written by `sandbox env` or `channels env`.
+  - `WHATSAPP_ACCESS_TOKEN` — Bearer credential for the chosen transport: a HookMyApp channel token (`hmat_`) from `sandbox env` / `channels env`, or your own Meta access token on the direct-Meta transport (see "Choose exactly one transport" below).
   - `WHATSAPP_PHONE_NUMBER_ID` — sandbox session phone or production Meta phone number ID.
 - **Sandbox vs production:** sandbox is a shared HookMyApp WABA with no Meta paperwork; recipient is pinned server-side to the session phone and templates are blocked. Production is the user's own WABA via Meta embedded signup; templates work and any opted-in recipient is reachable. The env keys above stay the same — only their values change.
 
