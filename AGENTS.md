@@ -13,7 +13,7 @@ This kit is an **Express webhook receiver wired to `@gethookmyapp/cli`**. The CL
   - `WEBHOOK_HMAC_SECRET` — the HMAC-SHA256 key for `X-HookMyApp-Signature-256`. Written by both `sandbox env` and `channels env`. As of v3 there is NO `VERIFY_TOKEN` fallback.
   - `PORT` — port the Express server listens on (defaults to `3000` if absent).
   - `META_GRAPH_API_URL` — Meta Graph API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production: `https://graph.facebook.com/v24.0` (or whatever Graph version your channel is pinned to). Renamed from `WHATSAPP_API_URL` in v2.0.0 — the name now reflects that the Graph API is Meta-level, not WhatsApp-specific.
-  - `WHATSAPP_ACCESS_TOKEN` — sandbox activation code (CLI-issued) or production Meta access token.
+  - `WHATSAPP_ACCESS_TOKEN` — Bearer credential for the chosen transport: a HookMyApp channel token (`hmat_`) from `sandbox env` / `channels env`, or your own Meta access token on the direct-Meta transport (see "Choose exactly one transport" below).
   - `WHATSAPP_PHONE_NUMBER_ID` — sandbox session phone or production Meta phone number ID.
 - **Sandbox vs production:** sandbox is a shared HookMyApp WABA with no Meta paperwork; recipient is pinned server-side to the session phone and templates are blocked. Production is the user's own WABA via Meta embedded signup; templates work and any opted-in recipient is reachable. The env keys above stay the same — only their values change.
 
@@ -179,9 +179,9 @@ Type into the bottom input and press Enter to send a message. This posts to `POS
 
 ## Signature verification
 
-Every inbound `POST /webhook/whatsapp` or `POST /webhook/instagram` from HookMyApp, in both sandbox and production, carries an `X-HookMyApp-Signature-256` header set to `sha256=<hex>` where the HMAC key is your `WEBHOOK_HMAC_SECRET`. As of v3 there is no `VERIFY_TOKEN` fallback. HookMyApp's forwarder signs every outbound request this way; the customer-facing contract is a single shape, not two.
+Every inbound `POST /webhook/whatsapp` or `POST /webhook/instagram` from HookMyApp, in both sandbox and production, carries an `X-HookMyApp-Signature-256` header set to `sha256=<hex>` where the HMAC key is your `WEBHOOK_HMAC_SECRET`. As of v3 there is no `VERIFY_TOKEN` fallback. HookMyApp signs every outbound request this way; the customer-facing contract is a single shape, not two.
 
-This kit's `src/index.js` uses the parsed-then-restringified body shape because the kit ships with `express.json()` middleware. The forwarder signs `JSON.stringify(parsedBody)` on its side, and V8's `JSON.stringify` is deterministic, so parsed+restringified on your side is byte-equivalent to raw.
+This kit's `src/index.js` uses the parsed-then-restringified body shape because the kit ships with `express.json()` middleware. HookMyApp signs `JSON.stringify(parsedBody)` on its side, and V8's `JSON.stringify` is deterministic, so parsed+restringified on your side is byte-equivalent to raw.
 
 ```js
 import { createHmac } from 'node:crypto';
@@ -195,9 +195,9 @@ function verifySignature(body, signature, hmacSecret) {
 }
 ```
 
-If you extend the kit and swap `express.json()` for `express.raw({ type: 'application/json' })`, update `.update(JSON.stringify(body))` to `.update(rawBody)` — the signature still matches because the forwarder sent the same bytes. What you must NOT do is mix the two (e.g., keep `express.json()` but hash the stringified representation of a manually re-encoded object with different whitespace) — that will break verification.
+If you extend the kit and swap `express.json()` for `express.raw({ type: 'application/json' })`, update `.update(JSON.stringify(body))` to `.update(rawBody)` — the signature still matches because HookMyApp sent the same bytes. What you must NOT do is mix the two (e.g., keep `express.json()` but hash the stringified representation of a manually re-encoded object with different whitespace) — that will break verification.
 
-> **Note:** Earlier versions of this guide and the HookMyApp skill mentioned a separate `X-Hub-Signature-256` path keyed on Meta's `APP_SECRET` for production. That path does **not** exist on the customer-facing interface — the forwarder verifies Meta's signature internally and re-signs with your `WEBHOOK_HMAC_SECRET` before forwarding. Do not wire an `APP_SECRET` verification branch on your server.
+> **Note:** Earlier versions of this guide and the HookMyApp skill mentioned a separate `X-Hub-Signature-256` path keyed on Meta's `APP_SECRET` for production. That path does **not** exist on the customer-facing interface — HookMyApp verifies Meta's signature internally and re-signs with your `WEBHOOK_HMAC_SECRET` before forwarding. Do not wire an `APP_SECRET` verification branch on your server.
 
 ## Troubleshooting
 

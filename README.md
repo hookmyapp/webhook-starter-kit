@@ -98,24 +98,24 @@ The `.env.example` file lists the keys the server expects, but you should not ne
 | `WEBHOOK_HMAC_SECRET` | Signing key for verifying incoming `X-HookMyApp-Signature-256` headers (HMAC-SHA256). Written by both `sandbox env` and `channels env`. As of v3 there is no `VERIFY_TOKEN` fallback. |
 | `PORT` | Port the webhook server listens on. Default `3000`. |
 | `WHATSAPP_API_URL` | WhatsApp Graph API base URL. Sandbox: `https://sandbox.hookmyapp.com/v22.0`. Production `channels env` writes this as `META_GRAPH_API_URL`; the kit reads either. |
-| `WHATSAPP_ACCESS_TOKEN` | Sandbox activation code (CLI-provided) or Meta access token in production. |
+| `WHATSAPP_ACCESS_TOKEN` | The Bearer credential for whichever transport you chose. `sandbox env` and `channels env` both write a HookMyApp channel token (`hmat_`); if you point the base at `graph.facebook.com` yourself, put your own Meta access token here. |
 | `WHATSAPP_PHONE_NUMBER_ID` | Phone number ID from your sandbox session or Meta app. |
 | `INSTAGRAM_API_URL` | Instagram Graph API base URL. Sandbox `sandbox env` writes this. A real Instagram channel's `channels env` writes it as `INSTAGRAM_GRAPH_API_URL`; the kit reads either. |
-| `INSTAGRAM_ACCESS_TOKEN` | Sandbox activation code (CLI-provided) or Meta access token for Instagram. |
+| `INSTAGRAM_ACCESS_TOKEN` | Same, for Instagram: a HookMyApp channel token (`hmat_`) from the CLI, or your own Meta access token on the direct-Meta transport. |
 | `INSTAGRAM_ACCOUNT_ID` | Instagram account ID the kit sends from. |
 | `INSTAGRAM_USERNAME` | Optional. The connected account's @username. Used by `/comments` to filter out the account's own reply echoes (comment webhooks can report the account under a different id than `INSTAGRAM_ACCOUNT_ID`). |
 
 ## How it works
 
-```
+```text
 WhatsApp user           Meta            HookMyApp           Your server
-sends message  ──────>  Cloud API  ──>  Forwarder  ──────>  POST /webhook/whatsapp
+sends message  ──────>  Cloud API  ──>  HookMyApp  ──────>  POST /webhook/whatsapp
                         webhook         signs with          verifies
                                         HMAC-SHA256         signature
 ```
 
 1. A WhatsApp user sends a message to your sandbox business number.
-2. Meta's Cloud API delivers the webhook to HookMyApp's forwarder.
+2. Meta's Cloud API delivers the webhook to HookMyApp.
 3. HookMyApp signs the payload with your webhook signing secret (HMAC-SHA256) and forwards it through a Cloudflare tunnel to your local server.
 4. Your server verifies the signature and processes the message.
 
@@ -125,7 +125,7 @@ The payload arrives in the **original Meta format**. HookMyApp does not transfor
 
 ### Verification challenge
 
-When you register your own public webhook URL with `hookmyapp channels webhook set <channel> --url ...` or `hookmyapp sandbox webhook set --url ...`, HookMyApp sends a one-time `GET /webhook/whatsapp` (or `/webhook/instagram`) to that URL. Your server must respond with `VERIFY_TOKEN` as the entire response body. This kit handles that automatically in `src/index.js`. The sandbox `listen` tunnel does not issue this GET; it only forwards live POSTs from the forwarder to your local routes.
+When you register your own public webhook URL with `hookmyapp channels webhook set <channel> --url ...` or `hookmyapp sandbox webhook set --url ...`, HookMyApp sends a one-time `GET /webhook/whatsapp` (or `/webhook/instagram`) to that URL. Your server must respond with `VERIFY_TOKEN` as the entire response body. This kit handles that automatically in `src/index.js`. The sandbox `listen` tunnel does not issue this GET; it only forwards live POSTs from HookMyApp to your local routes.
 
 ### Signature verification
 
