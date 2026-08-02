@@ -1,0 +1,29 @@
+# Retired-copy ban (MAR-3). This kit is cloned by every new integrator, so a
+# stale term here becomes their vocabulary. Bans reseller-category framing and
+# the retired "activation code" name for the sandbox channel token.
+name: Copy guard
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  banned-copy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ban retired copy in the kit
+        run: |
+          HITS=$(grep -rn -i -E '\bBSPs?\b|passthrough|activation code' README.md AGENTS.md .env.example src/ || true)
+          if [ -n "$HITS" ]; then
+            echo "FAIL: retired copy found in the starter kit:"
+            echo "$HITS"
+            echo ""
+            echo "  Fix: reseller-category framing (say what the reader gets, never"
+            echo "       the category or the plumbing) and \"activation code\" (the"
+            echo "       env value is the sandbox channel token; the code the user"
+            echo "       sends is the BIND code). See MAR-3."
+            exit 1
+          fi
+          echo "PASS: no retired copy in the starter kit"
