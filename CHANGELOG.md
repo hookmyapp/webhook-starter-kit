@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.0.2 — 2026-08-04
+
+### Fixed
+
+- `WHATSAPP_ACCESS_TOKEN` / `INSTAGRAM_ACCESS_TOKEN` were documented as "a Meta
+  access token in production". They never are on the CLI path: `channels env`
+  writes a HookMyApp channel token (`hmat_`) in production exactly as
+  `sandbox env` does, and the endpoint never returns a Meta token. Both rows now
+  describe the credential per transport, including the direct-Meta path where it
+  genuinely is your own Meta token.
+
+### Changed
+
+- "activation code" is the pre-rename name for the sandbox channel token, and it
+  named the wrong object — the code you send to the sandbox number is the *bind*
+  code. Corrected in README, AGENTS.md and `.env.example`.
+- Replaced the internal service name "forwarder" with HookMyApp throughout,
+  including the README diagram, and dropped token-custody framing.
+- `copy-guard.yml` fails CI on the retired terms.
+
 ## 3.0.1 — 2026-07-31
 
 ### Added
