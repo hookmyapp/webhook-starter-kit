@@ -1,6 +1,6 @@
 # HookMyApp Webhook Starter Kit
 
-A minimal Express.js starter for receiving WhatsApp and Instagram webhooks via [HookMyApp](https://hookmyapp.com). This kit ships verified-signature receivers for both channels, a local conversation viewer, and per-channel `send` helpers that work identically against the free sandbox and the production Meta API. Inbound messages are recorded (visible at `/chat` and `/logs`); replying is left to you via the `// CUSTOMIZE` hook in `src/index.js`.
+A minimal Express.js starter for receiving WhatsApp and Instagram webhooks via [HookMyApp](https://hookmyapp.com). This kit ships verified-signature receivers for both channels, a local conversation viewer, and per-channel `send` helpers that work identically against the free sandbox and the production Meta API. Inbound events are recorded (visible at `/chat` and `/logs`); replying is left to you via the `// CUSTOMIZE` hook in `src/index.js`.
 
 ## For AI Agents
 
@@ -159,7 +159,7 @@ await sendWhatsApp('1234567890', 'Hello from my app!');
 await sendInstagram('INSTAGRAM_SCOPED_ID', 'Hello from my app!');
 ```
 
-The kit does not reply to inbound messages by default — it just records them (see `/chat` and `/logs`). To send a reply, fill in the `// CUSTOMIZE` block in `src/index.js`'s `handleInbound` using the `send` helper.
+The kit does not reply to inbound events by default — it just records them (see `/chat` and `/logs`). To send a reply, fill in the `// CUSTOMIZE` block in `src/index.js`'s `handleInbound` using the `send` helper.
 
 ## Going to production
 
