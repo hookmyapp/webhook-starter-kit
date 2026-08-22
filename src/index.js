@@ -46,7 +46,7 @@ export function adminOnly(req, res, next) {
 // Normalized inbound handler. ctx carries injectable side-effects so it is
 // unit-testable and so WhatsApp/Instagram share one inbound flow.
 //
-// Out of the box this kit only RECORDS inbound messages — they show up at
+// Out of the box this kit only RECORDS inbound events — they show up at
 // /chat and /logs, and nothing is sent back. To make it reply, uncomment and
 // edit the CUSTOMIZE block below (`send` and `selfId` come from ctx).
 export async function handleInbound(message, ctx) {

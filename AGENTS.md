@@ -6,7 +6,7 @@ This kit is an **Express webhook receiver wired to `@gethookmyapp/cli`**. The CL
 
 ## The 60-second mental model
 
-- **What this kit is:** an Express server (`src/index.js`, `"type": "module"`, Node >= 20) on `PORT` (default `3000`) exposing per-channel routes `GET|POST /webhook/whatsapp` and `GET|POST /webhook/instagram` (Meta-style verify challenge on GET, signed inbound receiver on POST). Inbound messages are recorded to the `/chat` and `/logs` views; the kit does not reply on its own — reply logic goes in the `// CUSTOMIZE` block of `handleInbound`.
+- **What this kit is:** an Express server (`src/index.js`, `"type": "module"`, Node >= 20) on `PORT` (default `3000`) exposing per-channel routes `GET|POST /webhook/whatsapp` and `GET|POST /webhook/instagram` (Meta-style verify challenge on GET, signed inbound receiver on POST). Inbound events are recorded to the `/chat` and `/logs` views; the kit does not reply on its own — reply logic goes in the `// CUSTOMIZE` block of `handleInbound`.
 - **What the CLI is:** `@gethookmyapp/cli` (npm, global install). It owns sandbox session lifecycle, env-key issuance, the inbound tunnel, and outbound message sending. Your code never calls the HookMyApp API directly.
 - **What env is:** the server reads six keys from `.env`, written by both `hookmyapp sandbox env --write .env` and `hookmyapp channels env`:
   - `VERIFY_TOKEN` — the verify-challenge response body: the value your server echoes on the one-time verification GET. Nothing more. Written by both `sandbox env` and `channels env`; `sandbox webhook set` / `channels webhook set` run that GET against your URL.
@@ -144,7 +144,7 @@ hookmyapp channels webhook set <channel> \
 
 Pick a strong random verify token (32+ chars) and pass it via `--verify-token`. This is only the handshake value your server echoes on the verification GET — the HMAC key for `X-HookMyApp-Signature-256` is the separate `WEBHOOK_HMAC_SECRET` that `hookmyapp channels env` writes (see Signature verification below). Omitting `--verify-token` leaves the prior token in place, which is desirable for URL-only rotation when you already have one.
 
-> **HUMAN ACTION REQUIRED:** Confirm the URL with the human BEFORE running this. A typo silently drops inbound customer messages — the human's call, not yours.
+> **HUMAN ACTION REQUIRED:** Confirm the URL with the human BEFORE running this. A typo silently drops inbound customer events — the human's call, not yours.
 
 ### 6. Verify health
 
@@ -167,7 +167,7 @@ These operations cannot be automated. Stop and ask the human to do them:
 
 - **Never** paste output of `hookmyapp channels env <channel>` or `hookmyapp channels token <channel>` into chat, tickets, logs, commit messages, or PR descriptions. Redirect the human to a `.env` file or secret manager they control.
 - **Never** run `hookmyapp workspace use` without confirming the target workspace ID with the human — wrong workspace means mutating the wrong WABA.
-- **Never** run `hookmyapp channels webhook set ...` without explicit human URL confirmation. A typo silently drops inbound customer messages.
+- **Never** run `hookmyapp channels webhook set ...` without explicit human URL confirmation. A typo silently drops inbound customer events.
 - **Never** generate sandbox template-message examples — the sandbox proxy rejects templates and only `type: "text"` works in sandbox. Templates are production-only.
 - **Never** hand-edit `.env` to bypass `hookmyapp sandbox env --write`. The CLI is the source of truth; manual values drift the moment the sandbox session rotates.
 
