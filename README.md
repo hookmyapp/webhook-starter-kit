@@ -238,7 +238,7 @@ All three use the same env as sending (`INSTAGRAM_API_URL`/`INSTAGRAM_GRAPH_API_
 ## Next steps
 
 - **Add your business logic**: edit `src/index.js` to process incoming messages, send replies, or trigger workflows.
-- **Deploy**: host this server on any platform (Railway, Render, Fly.io, AWS, etc.). Update your webhook URL via `hookmyapp channels webhook set <channel> --url https://YOUR_HOST/webhook/whatsapp` once deployed.
+- **Deploy**: host this server anywhere it gets a stable public URL. Update your webhook URL via `hookmyapp channels webhook set <channel> --url https://YOUR_HOST/webhook/whatsapp` once deployed.
 - **Read the docs**: visit [hookmyapp.com](https://hookmyapp.com) for full documentation.
 
 ## Links
